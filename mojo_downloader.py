@@ -18,8 +18,10 @@ Requires:
   playwright install chromium
 """
 
+import logging
 import os
 import sys
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from datetime import date
 
@@ -50,14 +52,54 @@ TOKEN_FILE = Path(__file__).parent / "token.json"              # auto-created af
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 DOWNLOADS_DIR = Path(__file__).parent / "downloads"
+LOGS_DIR      = Path(__file__).parent / "logs"
+
 SHEET_NAME_FSBO    = f"mojo_export_fsbo_{date.today().isoformat()}"
 SHEET_NAME_EXPIRED = f"mojo_export_expired_{date.today().isoformat()}"
 
 # The export can take up to 5 minutes; give it 6 to be safe.
 DOWNLOAD_TIMEOUT_MS = 360_000
 
-# Set to True once you've confirmed the selectors work correctly.
-HEADLESS = False
+HEADLESS = True
+
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+def setup_logging() -> logging.Logger:
+    LOGS_DIR.mkdir(exist_ok=True)
+
+    logger = logging.getLogger("mojo_downloader")
+    logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)-8s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # File handler — rotates every 7 days, keeps 8 rotated files (~2 months total).
+    file_handler = TimedRotatingFileHandler(
+        filename=LOGS_DIR / "mojo_downloader.log",
+        when="midnight",
+        interval=7,
+        backupCount=8,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(fmt)
+
+    # Console handler — mirrors output to the terminal.
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(fmt)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    return logger
+
+
+log = logging.getLogger("mojo_downloader")
 
 
 # ---------------------------------------------------------------------------
@@ -72,13 +114,13 @@ def validate_env() -> None:
     }
     missing = [k for k, v in required.items() if not v]
     if missing:
-        print(f"ERROR: Missing required environment variables: {', '.join(missing)}")
-        print("Copy .env.example to .env and fill in your credentials.")
+        log.error("Missing required environment variables: %s", ", ".join(missing))
+        log.error("Copy .env.example to .env and fill in your credentials.")
         sys.exit(1)
 
     if not CREDENTIALS_FILE.exists():
-        print(f"ERROR: {CREDENTIALS_FILE} not found.")
-        print("Download it from Google Cloud Console: APIs & Services > Credentials > your OAuth client > Download JSON")
+        log.error("credentials.json not found at %s", CREDENTIALS_FILE)
+        log.error("Download it from Google Cloud Console: APIs & Services > Credentials > your OAuth client > Download JSON")
         sys.exit(1)
 
 
@@ -94,13 +136,16 @@ def get_drive_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            log.info("Refreshing Google OAuth token...")
             creds.refresh(Request())
         else:
+            log.info("Opening browser for one-time Google authorization...")
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
             # Opens a browser tab for one-time authorization. token.json is saved
             # afterward and reused on every subsequent run.
             creds = flow.run_local_server(port=0)
         TOKEN_FILE.write_text(creds.to_json())
+        log.info("Google credentials saved to %s", TOKEN_FILE)
 
     return build("drive", "v3", credentials=creds)
 
@@ -122,7 +167,7 @@ def check_sheet_exists(drive_service, sheet_name: str, folder_id: str) -> bool:
 
 
 def upload_to_drive(drive_service, xlsx_path: Path, sheet_name: str, folder_id: str) -> dict:
-    print(f"Uploading '{xlsx_path.name}' as Google Sheet '{sheet_name}'...")
+    log.info("Uploading '%s' as Google Sheet '%s'...", xlsx_path.name, sheet_name)
     file_metadata = {
         "name": sheet_name,
         "mimeType": "application/vnd.google-apps.spreadsheet",
@@ -153,7 +198,7 @@ def upload_to_drive(drive_service, xlsx_path: Path, sheet_name: str, folder_id: 
 def _select_all_and_export(page: Page, label: str) -> Path:
     """Select all records for the current filter, export, and return the saved file path."""
 
-    print(f"Selecting all {label} records...")
+    log.info("Selecting all %s records...", label)
     # Try clicking "Select All" directly; fall back to opening the dropdown first.
     try:
         page.click(
@@ -168,12 +213,12 @@ def _select_all_and_export(page: Page, label: str) -> Path:
     page.wait_for_timeout(500)
 
     # First click opens a confirmation modal.
-    print(f"Opening {label} export dialog...")
+    log.info("Opening %s export dialog...", label)
     page.click('a[role="button"]:has-text("Export")')
     page.wait_for_timeout(500)
 
     # Second click triggers the actual download. Server may take up to 5 minutes.
-    print(f"Confirming {label} export — server may take up to 5 minutes to prepare the file...")
+    log.info("Confirming %s export — server may take up to 5 minutes to prepare the file...", label)
     with page.expect_download(timeout=DOWNLOAD_TIMEOUT_MS) as download_info:
         page.click('button.GenericModal_confirmButton__BAaWj:has-text("Export")')
 
@@ -181,7 +226,7 @@ def _select_all_and_export(page: Page, label: str) -> Path:
     filename = download.suggested_filename or f"mojo_{label.lower()}_{date.today().isoformat()}.xlsx"
     save_path = DOWNLOADS_DIR / filename
     download.save_as(str(save_path))
-    print(f"Downloaded {label}: {save_path}")
+    log.info("Downloaded %s: %s", label, save_path)
     return save_path
 
 
@@ -198,14 +243,14 @@ def download_exports() -> tuple:
             # ------------------------------------------------------------------
             # Step 1: Login
             # ------------------------------------------------------------------
-            print("Navigating to Mojo Sells login page...")
+            log.info("Navigating to Mojo Sells login page...")
             page.goto(MOJO_URL, wait_until="networkidle")
 
             page.fill('input[name="email"]', MOJO_USERNAME)
             page.fill('input[name="password"]', MOJO_PASSWORD)
             page.click('button[type="submit"]')
             page.wait_for_load_state("networkidle")
-            print("Logged in.")
+            log.info("Logged in.")
 
             # ------------------------------------------------------------------
             # Step 2: Open the Data & Dialer contacts view
@@ -216,14 +261,14 @@ def download_exports() -> tuple:
             # Dashboard widget selectors (for reference only, do not use for export):
             #   FSBO Leads:    button.ProductWidget_widgetElement__RqNtF:has-text("FSBO Leads")
             #   Expired Leads: button.ProductWidget_widgetElement__RqNtF:has-text("Expired Leads")
-            print("Navigating to Data & Dialer contacts...")
+            log.info("Navigating to Data & Dialer contacts...")
             page.click('#menu-button-my-data')
             page.wait_for_load_state("networkidle")
 
             # ------------------------------------------------------------------
             # Step 3: FSBO — filter, select all, export
             # ------------------------------------------------------------------
-            print("Applying FSBO filter...")
+            log.info("Applying FSBO filter...")
             page.click('div.SelectFieldElement_name__RO3oK:has-text("FSBO")')
             page.wait_for_load_state("networkidle")
 
@@ -233,14 +278,14 @@ def download_exports() -> tuple:
             # Step 4: Close the task/download status window
             # ------------------------------------------------------------------
             # Using img[alt="close"] to avoid escaping the '+' in the CSS class name.
-            print("Closing task window...")
+            log.info("Closing task window...")
             page.click('button:has(img[alt="close"])')
             page.wait_for_timeout(500)
 
             # ------------------------------------------------------------------
             # Step 5: Expired — filter, select all, export
             # ------------------------------------------------------------------
-            print("Applying Expired filter...")
+            log.info("Applying Expired filter...")
             page.click('div.SelectFieldElement_name__RO3oK:has-text("Expired")')
             page.wait_for_load_state("networkidle")
 
@@ -249,10 +294,10 @@ def download_exports() -> tuple:
             return fsbo_path, expired_path
 
         except PlaywrightTimeoutError as exc:
-            print(f"ERROR: Timed out — {exc}")
+            log.exception("Timed out during browser automation: %s", exc)
             sys.exit(1)
         except Exception as exc:
-            print(f"ERROR during browser automation: {exc}")
+            log.exception("Unexpected error during browser automation: %s", exc)
             raise
         finally:
             context.close()
@@ -264,29 +309,37 @@ def download_exports() -> tuple:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    setup_logging()
+    log.info("=" * 60)
+    log.info("Mojo Downloader started")
+    log.info("=" * 60)
+
     validate_env()
 
     drive_service = get_drive_service()
 
     # Check both sheet names before touching the browser.
     for sheet_name in [SHEET_NAME_FSBO, SHEET_NAME_EXPIRED]:
-        print(f"Checking Drive folder for existing sheet '{sheet_name}'...")
+        log.info("Checking Drive folder for existing sheet '%s'...", sheet_name)
         if check_sheet_exists(drive_service, sheet_name, GOOGLE_DRIVE_FOLDER_ID):
-            print(
-                f"ERROR: A Google Sheet named '{sheet_name}' already exists in the specified folder.\n"
-                "Delete or rename it before running this script again."
+            log.error(
+                "Google Sheet '%s' already exists in the specified folder. "
+                "Delete or rename it before running this script again.",
+                sheet_name,
             )
             sys.exit(1)
-    print("No duplicates found — proceeding.")
+    log.info("No duplicates found — proceeding.")
 
     fsbo_path, expired_path = download_exports()
 
     fsbo_result    = upload_to_drive(drive_service, fsbo_path,    SHEET_NAME_FSBO,    GOOGLE_DRIVE_FOLDER_ID)
     expired_result = upload_to_drive(drive_service, expired_path, SHEET_NAME_EXPIRED, GOOGLE_DRIVE_FOLDER_ID)
 
-    print("\nDone!")
-    print(f"  FSBO sheet    : {fsbo_result['name']}  —  {fsbo_result.get('webViewLink', 'N/A')}")
-    print(f"  Expired sheet : {expired_result['name']}  —  {expired_result.get('webViewLink', 'N/A')}")
+    log.info("=" * 60)
+    log.info("Done!")
+    log.info("  FSBO sheet    : %s  —  %s", fsbo_result["name"],    fsbo_result.get("webViewLink", "N/A"))
+    log.info("  Expired sheet : %s  —  %s", expired_result["name"], expired_result.get("webViewLink", "N/A"))
+    log.info("=" * 60)
 
 
 if __name__ == "__main__":

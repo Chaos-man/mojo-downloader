@@ -6,6 +6,9 @@ token.json
 # Downloaded spreadsheets
 downloads/
 
+# Logs
+logs/
+
 # Python
 __pycache__/
 *.py[cod]
