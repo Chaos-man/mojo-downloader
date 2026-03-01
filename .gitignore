@@ -1,0 +1,12 @@
+# Credentials
+.env
+
+# Downloaded spreadsheets
+downloads/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
