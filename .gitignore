@@ -1,5 +1,7 @@
 # Credentials
 .env
+credentials.json
+token.json
 
 # Downloaded spreadsheets
 downloads/
