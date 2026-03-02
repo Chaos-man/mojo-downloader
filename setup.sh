@@ -50,8 +50,13 @@ if sys.version_info < (3, 9):
 # 2. Virtual environment
 # ---------------------------------------------------------------------------
 
-if [ ! -d "$VENV_DIR" ]; then
-    info "Creating virtual environment at $VENV_DIR..."
+if [ ! -f "$PIP" ]; then
+    if [ -d "$VENV_DIR" ]; then
+        warn "Incomplete virtual environment found — recreating..."
+        rm -rf "$VENV_DIR"
+    else
+        info "Creating virtual environment at $VENV_DIR..."
+    fi
     python3 -m venv "$VENV_DIR"
     success "Virtual environment created."
 else
