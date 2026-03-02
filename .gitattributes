@@ -1,0 +1,4 @@
+tests/              export-ignore
+requirements-dev.txt export-ignore
+.env.example        export-ignore
+.github/            export-ignore
