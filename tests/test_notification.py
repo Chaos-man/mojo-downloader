@@ -61,6 +61,23 @@ def test_skips_email_when_one_smtp_var_missing(monkeypatch):
     mock_smtp.assert_not_called()
 
 
+def test_test_notification_flag_sends_email_and_exits(monkeypatch):
+    """--test-notification calls send_failure_email() then exits 0."""
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--test-notification"])
+    mock_server = MagicMock()
+    mock_ctx = MagicMock()
+    mock_ctx.__enter__ = MagicMock(return_value=mock_server)
+    mock_ctx.__exit__ = MagicMock(return_value=False)
+
+    with patch.dict("os.environ", SMTP_ENV, clear=False):
+        with patch("smtplib.SMTP_SSL", return_value=mock_ctx):
+            with pytest.raises(SystemExit) as exc:
+                mojo_downloader.main()
+
+    assert exc.value.code == 0
+    mock_server.send_message.assert_called_once()
+
+
 def test_smtp_connection_error_does_not_raise():
     """If the SMTP call itself raises, send_failure_email catches it and does not propagate."""
     mock_ctx = MagicMock()

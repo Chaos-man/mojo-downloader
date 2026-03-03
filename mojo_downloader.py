@@ -18,6 +18,7 @@ Requires:
   playwright install chromium
 """
 
+import argparse
 import logging
 import os
 import smtplib
@@ -359,27 +360,73 @@ def send_failure_email(error: Exception) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Mojo Sells lead exporter")
+    parser.add_argument(
+        "--test-notification", action="store_true",
+        help="Send a test failure email and exit (verifies SMTP config).",
+    )
+    parser.add_argument(
+        "--check-drive", action="store_true",
+        help="Check Drive for today's sheets and exit.",
+    )
+    parser.add_argument(
+        "--show-browser", action="store_true",
+        help="Launch Chromium with a visible window instead of headless.",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Download exports but skip the Drive upload.",
+    )
+    parser.add_argument(
+        "--force", action="store_true",
+        help="Skip the duplicate-sheet check.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
+
     setup_logging()
     log.info("=" * 60)
     log.info("Mojo Downloader started")
     log.info("=" * 60)
 
-    validate_env()
+    # --test-notification: fire test email and exit before any other work.
+    if args.test_notification:
+        log.info("--test-notification: sending test email...")
+        send_failure_email(RuntimeError("This is a test notification from mojo-downloader."))
+        log.info("--test-notification: done.")
+        sys.exit(0)
 
+    validate_env()
     drive_service = get_drive_service()
 
-    # Check both sheet names before touching the browser.
-    for sheet_name in [SHEET_NAME_FSBO, SHEET_NAME_EXPIRED]:
-        log.info("Checking Drive folder for existing sheet '%s'...", sheet_name)
-        if check_sheet_exists(drive_service, sheet_name, GOOGLE_DRIVE_FOLDER_ID):
-            log.error(
-                "Google Sheet '%s' already exists in the specified folder. "
-                "Delete or rename it before running this script again.",
-                sheet_name,
-            )
-            sys.exit(1)
-    log.info("No duplicates found — proceeding.")
+    # --check-drive: query Drive for today's sheets and exit.
+    if args.check_drive:
+        for sheet_name in [SHEET_NAME_FSBO, SHEET_NAME_EXPIRED]:
+            exists = check_sheet_exists(drive_service, sheet_name, GOOGLE_DRIVE_FOLDER_ID)
+            log.info("%-45s %s", sheet_name, "EXISTS" if exists else "not found")
+        sys.exit(0)
+
+    # --force skips the duplicate check; otherwise abort if sheets already exist.
+    if not args.force:
+        for sheet_name in [SHEET_NAME_FSBO, SHEET_NAME_EXPIRED]:
+            log.info("Checking Drive folder for existing sheet '%s'...", sheet_name)
+            if check_sheet_exists(drive_service, sheet_name, GOOGLE_DRIVE_FOLDER_ID):
+                log.error(
+                    "Google Sheet '%s' already exists in the specified folder. "
+                    "Delete or rename it, or use --force to skip this check.",
+                    sheet_name,
+                )
+                sys.exit(1)
+        log.info("No duplicates found — proceeding.")
+
+    # --show-browser: override the module-level HEADLESS constant.
+    if args.show_browser:
+        import mojo_downloader as _self
+        _self.HEADLESS = False
 
     try:
         fsbo_path, expired_path = retry(download_exports, max_attempts=3, delay_seconds=1800)
@@ -387,6 +434,13 @@ def main() -> None:
         log.exception("Export failed after all retry attempts.")
         send_failure_email(exc)
         sys.exit(1)
+
+    # --dry-run: skip the Drive upload.
+    if args.dry_run:
+        log.info("--dry-run: skipping Drive upload. Files saved to:")
+        log.info("  FSBO    : %s", fsbo_path)
+        log.info("  Expired : %s", expired_path)
+        sys.exit(0)
 
     fsbo_result    = upload_to_drive(drive_service, fsbo_path,    SHEET_NAME_FSBO,    GOOGLE_DRIVE_FOLDER_ID)
     expired_result = upload_to_drive(drive_service, expired_path, SHEET_NAME_EXPIRED, GOOGLE_DRIVE_FOLDER_ID)

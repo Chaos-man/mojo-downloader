@@ -37,7 +37,8 @@ mojo-downloader/
     ├── test_logging.py
     ├── test_browser.py
     ├── test_retry.py
-    └── test_notification.py
+    ├── test_notification.py
+    └── test_cli.py
 ```
 
 ---
@@ -133,6 +134,33 @@ python mojo_downloader.py
 
 Output is written to both the terminal and `logs/mojo_downloader.log`.
 
+## CLI Flags
+
+| Flag | Description |
+|---|---|
+| `--test-notification` | Send a test failure email and exit. Use this to verify your SMTP config works before relying on it. |
+| `--check-drive` | Check whether today's FSBO and Expired sheets already exist in Drive, then exit. |
+| `--show-browser` | Launch Chromium with a visible window instead of headless. Useful for debugging login or navigation issues. |
+| `--dry-run` | Run the browser automation and download exports, but skip the Drive upload. |
+| `--force` | Skip the duplicate-sheet check. Useful when you need to re-run after a partial failure without deleting the existing sheets first. |
+
+```bash
+# Verify email notification works:
+python mojo_downloader.py --test-notification
+
+# Check if today's sheets are already on Drive:
+python mojo_downloader.py --check-drive
+
+# Debug browser steps with a visible window:
+python mojo_downloader.py --show-browser
+
+# Test the full download without uploading anything:
+python mojo_downloader.py --dry-run
+
+# Re-run after a partial failure (sheets already exist):
+python mojo_downloader.py --force
+```
+
 ---
 
 ## Linux Server Deployment
@@ -189,7 +217,8 @@ pytest tests/ -v
 | `test_logging.py` | `setup_logging()` — directory creation, handler config, rotation settings |
 | `test_browser.py` | `_select_all_and_export()` — direct click, dropdown fallback, file saving |
 | `test_retry.py` | `retry()` — success on first attempt, retry on failure, exhaustion behavior |
-| `test_notification.py` | `send_failure_email()` — SMTP call, missing config skip, connection error handling |
+| `test_notification.py` | `send_failure_email()` — SMTP call, missing config skip, connection error handling, `--test-notification` flag |
+| `test_cli.py` | CLI flags — `--check-drive`, `--force`, `--dry-run`, `--show-browser`, default behaviour |
 
 ---
 
