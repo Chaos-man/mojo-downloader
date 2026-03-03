@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # setup.sh — Install dependencies and register the nightly cron job.
-# Run once on the Linux server: bash setup.sh
+# Idempotent — safe to re-run; any existing cron entry for this script is replaced.
 
 set -euo pipefail
 
@@ -10,10 +10,10 @@ PYTHON="$VENV_DIR/bin/python"
 PIP="$VENV_DIR/bin/pip"
 PLAYWRIGHT="$VENV_DIR/bin/playwright"
 
-# Cron: every night at 1:00 AM.
+# Cron: every night at 5:00 AM.
 # stdout/stderr are redirected to logs/cron.log to catch errors that occur
 # before the Python logger initialises (e.g. missing imports).
-CRON_SCHEDULE="0 1 * * *"
+CRON_SCHEDULE="0 5 * * *"
 CRON_CMD="$PYTHON $SCRIPT_DIR/mojo_downloader.py >> $SCRIPT_DIR/logs/cron.log 2>&1"
 CRON_JOB="$CRON_SCHEDULE $CRON_CMD"
 
@@ -92,18 +92,15 @@ success "Logs directory ready at $SCRIPT_DIR/logs"
 # 6. Cron job
 # ---------------------------------------------------------------------------
 
-info "Checking for existing cron entry..."
+info "Registering cron job (replacing any existing entry)..."
 
 # Load current crontab, silently handle the case where none exists yet.
+# Strip any pre-existing entry for this script, then append the updated job.
+# crontab - takes effect immediately; no service restart required.
 CURRENT_CRONTAB=$(crontab -l 2>/dev/null || true)
-
-if echo "$CURRENT_CRONTAB" | grep -qF "$SCRIPT_DIR/mojo_downloader.py"; then
-    warn "Cron job already registered — skipping."
-else
-    info "Adding cron job: $CRON_JOB"
-    (echo "$CURRENT_CRONTAB"; echo "$CRON_JOB") | crontab -
-    success "Cron job registered."
-fi
+FILTERED=$(echo "$CURRENT_CRONTAB" | grep -vF "$SCRIPT_DIR/mojo_downloader.py" || true)
+(echo "$FILTERED"; echo "$CRON_JOB") | crontab -
+success "Cron job registered: $CRON_JOB"
 
 # ---------------------------------------------------------------------------
 # Done
@@ -114,7 +111,7 @@ echo "========================================"
 echo " Setup complete!"
 echo "========================================"
 echo " Script  : $SCRIPT_DIR/mojo_downloader.py"
-echo " Runs at : 1:00 AM every night"
+echo " Runs at : 5:00 AM every night"
 echo " Logs    : $SCRIPT_DIR/logs/"
 echo ""
 echo " Next steps:"
