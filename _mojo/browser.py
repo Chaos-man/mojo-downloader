@@ -59,9 +59,38 @@ def _select_all_and_export(page: Page, label: str) -> Path:
     return save_path
 
 
-def download_exports() -> tuple:
-    """Run the full browser session and return (fsbo_path, expired_path)."""
+_DEFAULT_TABLES = ["FSBO", "Expired"]
+
+
+def _find_table_filter(page: Page, label: str):
+    """Return the filter element whose text matches label (case-insensitive, trimmed).
+
+    Raises ValueError if no matching element is found on the page.
+    """
+    target = label.strip().lower()
+    for el in page.locator("div.SelectFieldElement_name__RO3oK").all():
+        text = el.text_content()
+        if text and text.strip().lower() == target:
+            return el
+    raise ValueError(f"Table filter not found on page: '{label}'")
+
+
+def download_exports(
+    tables: list[str] | None = None,
+    continue_on_error: bool = False,
+) -> dict[str, Path]:
+    """Run the full browser session and return a dict mapping table label to downloaded Path.
+
+    Args:
+        tables: Labels of the tables to download. Defaults to ['FSBO', 'Expired'].
+        continue_on_error: If True, log a warning on per-table failures and continue to
+            the next table instead of raising. If False (default), raise on first failure.
+    """
+    if tables is None:
+        tables = _DEFAULT_TABLES
+
     DOWNLOADS_DIR.mkdir(exist_ok=True)
+    results: dict[str, Path] = {}
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=HEADLESS)
@@ -95,32 +124,29 @@ def download_exports() -> tuple:
             page.wait_for_load_state("networkidle")
 
             # ------------------------------------------------------------------
-            # Step 3: FSBO — filter, select all, export
+            # Step 3: For each configured table — filter, select all, export
             # ------------------------------------------------------------------
-            log.info("Applying FSBO filter...")
-            page.click('div.SelectFieldElement_name__RO3oK:has-text("FSBO")')
-            page.wait_for_load_state("networkidle")
+            for table in tables:
+                try:
+                    log.info("Applying %s filter...", table)
+                    el = _find_table_filter(page, table)
+                    el.click()
+                    page.wait_for_load_state("networkidle")
 
-            fsbo_path = _select_all_and_export(page, "FSBO")
+                    path = _select_all_and_export(page, table)
+                    results[table] = path
 
-            # ------------------------------------------------------------------
-            # Step 4: Close the task/download status window
-            # ------------------------------------------------------------------
-            # Using img[alt="close"] to avoid escaping the '+' in the CSS class name.
-            log.info("Closing task window...")
-            page.click('button:has(img[alt="close"])')
-            page.wait_for_timeout(500)
+                    # Close the task/download status window before the next table.
+                    # Using img[alt="close"] to avoid escaping the '+' in the CSS class name.
+                    log.info("Closing task window...")
+                    page.click('button:has(img[alt="close"])')
+                    page.wait_for_timeout(500)
 
-            # ------------------------------------------------------------------
-            # Step 5: Expired — filter, select all, export
-            # ------------------------------------------------------------------
-            log.info("Applying Expired filter...")
-            page.click('div.SelectFieldElement_name__RO3oK:has-text("Expired")')
-            page.wait_for_load_state("networkidle")
-
-            expired_path = _select_all_and_export(page, "Expired")
-
-            return fsbo_path, expired_path
+                except Exception as exc:
+                    if continue_on_error:
+                        log.warning("Table '%s' failed: %s — skipping.", table, exc)
+                    else:
+                        raise
 
         except Exception as exc:
             log.exception("Browser automation error: %s", exc)
@@ -128,3 +154,5 @@ def download_exports() -> tuple:
         finally:
             context.close()
             browser.close()
+
+    return results

@@ -14,7 +14,7 @@ PLAYWRIGHT="$VENV_DIR/bin/playwright"
 # stdout/stderr are redirected to logs/cron.log to catch errors that occur
 # before the Python logger initialises (e.g. missing imports).
 CRON_SCHEDULE="0 5 * * *"
-CRON_CMD="$PYTHON $SCRIPT_DIR/mojo_downloader.py >> $SCRIPT_DIR/logs/cron.log 2>&1"
+CRON_CMD="$PYTHON $SCRIPT_DIR/mojo_downloader.py --cron >> $SCRIPT_DIR/logs/cron.log 2>&1"
 CRON_JOB="$CRON_SCHEDULE $CRON_CMD"
 
 # ---------------------------------------------------------------------------

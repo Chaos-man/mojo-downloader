@@ -10,7 +10,30 @@ import mojo_downloader
 
 
 # ---------------------------------------------------------------------------
-# Sheet name format
+# sheet_name_for()
+# ---------------------------------------------------------------------------
+
+def test_sheet_name_for_fsbo():
+    today = date.today().isoformat()
+    assert drive.sheet_name_for("FSBO") == f"mojo_export_fsbo_{today}"
+
+
+def test_sheet_name_for_expired():
+    today = date.today().isoformat()
+    assert drive.sheet_name_for("Expired") == f"mojo_export_expired_{today}"
+
+
+def test_sheet_name_for_lowercases_label():
+    assert drive.sheet_name_for("FSBO") == drive.sheet_name_for("fsbo")
+
+
+def test_sheet_name_for_special_chars():
+    today = date.today().isoformat()
+    assert drive.sheet_name_for("Agent/Corporate Owned") == f"mojo_export_agent/corporate owned_{today}"
+
+
+# ---------------------------------------------------------------------------
+# Legacy constants (backward compatibility)
 # ---------------------------------------------------------------------------
 
 def test_sheet_name_fsbo_format():

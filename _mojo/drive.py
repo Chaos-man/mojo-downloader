@@ -24,8 +24,14 @@ TOKEN_FILE = Path(__file__).parent / "token.json"              # auto-created af
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-SHEET_NAME_FSBO    = f"mojo_export_fsbo_{date.today().isoformat()}"
-SHEET_NAME_EXPIRED = f"mojo_export_expired_{date.today().isoformat()}"
+def sheet_name_for(table: str) -> str:
+    """Return today's Drive sheet name for the given table label."""
+    return f"mojo_export_{table.lower()}_{date.today().isoformat()}"
+
+
+# Legacy aliases kept for backward compatibility.
+SHEET_NAME_FSBO    = sheet_name_for("FSBO")
+SHEET_NAME_EXPIRED = sheet_name_for("Expired")
 
 
 def get_drive_service():
