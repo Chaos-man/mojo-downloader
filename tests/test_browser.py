@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, call, patch
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from _mojo import browser
 import mojo_downloader
 
 
@@ -36,10 +37,10 @@ def _make_page_mock(tmp_path, suggested_filename="export.xlsx"):
 
 def test_select_all_direct_click_success(tmp_path, monkeypatch):
     """Select All button is clickable immediately — no dropdown needed."""
-    monkeypatch.setattr(mojo_downloader, "DOWNLOADS_DIR", tmp_path)
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
     page, mock_download = _make_page_mock(tmp_path)
 
-    result = mojo_downloader._select_all_and_export(page, "FSBO")
+    result = browser._select_all_and_export(page, "FSBO")
 
     # Verify Select All was attempted directly
     page.click.assert_any_call(
@@ -55,7 +56,7 @@ def test_select_all_direct_click_success(tmp_path, monkeypatch):
 
 def test_select_all_falls_back_to_dropdown(tmp_path, monkeypatch):
     """When the direct Select All click times out, the dropdown is opened first."""
-    monkeypatch.setattr(mojo_downloader, "DOWNLOADS_DIR", tmp_path)
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
     page, _ = _make_page_mock(tmp_path)
 
     # Make the first Select All click raise a timeout
@@ -66,7 +67,7 @@ def test_select_all_falls_back_to_dropdown(tmp_path, monkeypatch):
 
     page.click.side_effect = click_side_effect
 
-    mojo_downloader._select_all_and_export(page, "FSBO")
+    browser._select_all_and_export(page, "FSBO")
 
     clicks = [c.args[0] for c in page.click.call_args_list]
     assert ".ContactTable_selectAllCheckboxContainer__FzQur" in clicks
@@ -74,10 +75,10 @@ def test_select_all_falls_back_to_dropdown(tmp_path, monkeypatch):
 
 def test_select_all_saves_file_to_downloads_dir(tmp_path, monkeypatch):
     """Downloaded file is saved inside DOWNLOADS_DIR."""
-    monkeypatch.setattr(mojo_downloader, "DOWNLOADS_DIR", tmp_path)
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
     page, mock_download = _make_page_mock(tmp_path, suggested_filename="export_2026-03-01.xlsx")
 
-    result = mojo_downloader._select_all_and_export(page, "FSBO")
+    result = browser._select_all_and_export(page, "FSBO")
 
     assert result.parent == tmp_path
     assert result.name == "export_2026-03-01.xlsx"
@@ -86,10 +87,10 @@ def test_select_all_saves_file_to_downloads_dir(tmp_path, monkeypatch):
 
 def test_select_all_uses_fallback_filename_when_none(tmp_path, monkeypatch):
     """Falls back to a generated filename when suggested_filename is empty."""
-    monkeypatch.setattr(mojo_downloader, "DOWNLOADS_DIR", tmp_path)
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
     page, mock_download = _make_page_mock(tmp_path, suggested_filename="")
 
-    result = mojo_downloader._select_all_and_export(page, "Expired")
+    result = browser._select_all_and_export(page, "Expired")
 
     assert "expired" in result.name.lower()
     assert result.suffix == ".xlsx"
@@ -97,9 +98,9 @@ def test_select_all_uses_fallback_filename_when_none(tmp_path, monkeypatch):
 
 def test_select_all_uses_label_in_fallback_filename(tmp_path, monkeypatch):
     """The label ('FSBO' or 'Expired') appears in the fallback filename."""
-    monkeypatch.setattr(mojo_downloader, "DOWNLOADS_DIR", tmp_path)
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
 
     for label in ("FSBO", "Expired"):
         page, mock_download = _make_page_mock(tmp_path, suggested_filename="")
-        result = mojo_downloader._select_all_and_export(page, label)
+        result = browser._select_all_and_export(page, label)
         assert label.lower() in result.name.lower()

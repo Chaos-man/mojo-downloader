@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock, call
 from pathlib import Path
 
+from _mojo import browser
 import mojo_downloader
 
 
@@ -99,7 +100,7 @@ def test_dry_run_skips_upload_and_exits_zero(monkeypatch, credentials_file):
 
 def test_show_browser_sets_headless_false(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--show-browser", "--dry-run"])
-    monkeypatch.setattr("mojo_downloader.HEADLESS", True)
+    monkeypatch.setattr(browser, "HEADLESS", True)
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -107,7 +108,7 @@ def test_show_browser_sets_headless_false(monkeypatch, credentials_file):
                 with patch("mojo_downloader.retry", return_value=FAKE_PATHS):
                     with pytest.raises(SystemExit):
                         mojo_downloader.main()
-    assert mojo_downloader.HEADLESS is False
+    assert browser.HEADLESS is False
 
 
 # ---------------------------------------------------------------------------

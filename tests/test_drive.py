@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from _mojo import drive
 import mojo_downloader
 
 
@@ -14,16 +15,16 @@ import mojo_downloader
 
 def test_sheet_name_fsbo_format():
     today = date.today().isoformat()
-    assert mojo_downloader.SHEET_NAME_FSBO == f"mojo_export_fsbo_{today}"
+    assert drive.SHEET_NAME_FSBO == f"mojo_export_fsbo_{today}"
 
 
 def test_sheet_name_expired_format():
     today = date.today().isoformat()
-    assert mojo_downloader.SHEET_NAME_EXPIRED == f"mojo_export_expired_{today}"
+    assert drive.SHEET_NAME_EXPIRED == f"mojo_export_expired_{today}"
 
 
 def test_sheet_names_are_distinct():
-    assert mojo_downloader.SHEET_NAME_FSBO != mojo_downloader.SHEET_NAME_EXPIRED
+    assert drive.SHEET_NAME_FSBO != drive.SHEET_NAME_EXPIRED
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +78,7 @@ def test_upload_to_drive_returns_api_result(mock_drive_service, tmp_path):
     xlsx = tmp_path / "export.xlsx"
     xlsx.write_bytes(b"fake xlsx content")
 
-    with patch("mojo_downloader.MediaFileUpload"):
+    with patch("_mojo.drive.MediaFileUpload"):
         result = mojo_downloader.upload_to_drive(
             mock_drive_service, xlsx, "mojo_export_fsbo_2026-03-01", "folder123"
         )
@@ -90,7 +91,7 @@ def test_upload_to_drive_sets_google_sheet_mime(mock_drive_service, tmp_path):
     xlsx = tmp_path / "export.xlsx"
     xlsx.write_bytes(b"fake xlsx content")
 
-    with patch("mojo_downloader.MediaFileUpload"):
+    with patch("_mojo.drive.MediaFileUpload"):
         mojo_downloader.upload_to_drive(
             mock_drive_service, xlsx, "my_sheet", "folder123"
         )
@@ -103,7 +104,7 @@ def test_upload_to_drive_uses_supports_all_drives(mock_drive_service, tmp_path):
     xlsx = tmp_path / "export.xlsx"
     xlsx.write_bytes(b"fake xlsx content")
 
-    with patch("mojo_downloader.MediaFileUpload"):
+    with patch("_mojo.drive.MediaFileUpload"):
         mojo_downloader.upload_to_drive(
             mock_drive_service, xlsx, "my_sheet", "folder123"
         )

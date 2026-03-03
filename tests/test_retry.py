@@ -3,14 +3,15 @@
 import pytest
 from unittest.mock import patch, call
 
+from _mojo import notify
 import mojo_downloader
 
 
 def test_retry_succeeds_first_attempt():
     """No sleep when the function succeeds on the first try."""
     fn = lambda: "ok"
-    with patch("mojo_downloader.time.sleep") as mock_sleep:
-        result = mojo_downloader.retry(fn, max_attempts=3, delay_seconds=1800)
+    with patch("_mojo.notify.time.sleep") as mock_sleep:
+        result = notify.retry(fn, max_attempts=3, delay_seconds=1800)
     assert result == "ok"
     mock_sleep.assert_not_called()
 
@@ -25,8 +26,8 @@ def test_retry_succeeds_on_second_attempt():
             raise result
         return result
 
-    with patch("mojo_downloader.time.sleep") as mock_sleep:
-        result = mojo_downloader.retry(fn, max_attempts=3, delay_seconds=1800)
+    with patch("_mojo.notify.time.sleep") as mock_sleep:
+        result = notify.retry(fn, max_attempts=3, delay_seconds=1800)
 
     assert result == "ok"
     mock_sleep.assert_called_once_with(1800)
@@ -39,9 +40,9 @@ def test_retry_exhausts_all_attempts_raises_last_exception():
     def fn():
         raise errors.pop(0)
 
-    with patch("mojo_downloader.time.sleep") as mock_sleep:
+    with patch("_mojo.notify.time.sleep") as mock_sleep:
         with pytest.raises(ValueError, match="fail 3"):
-            mojo_downloader.retry(fn, max_attempts=3, delay_seconds=1800)
+            notify.retry(fn, max_attempts=3, delay_seconds=1800)
 
     # Sleep called between attempts 1→2 and 2→3 (not after the last failure)
     assert mock_sleep.call_count == 2
@@ -50,7 +51,7 @@ def test_retry_exhausts_all_attempts_raises_last_exception():
 
 def test_retry_single_attempt_raises_immediately():
     """With max_attempts=1, raises on the first failure without sleeping."""
-    with patch("mojo_downloader.time.sleep") as mock_sleep:
+    with patch("_mojo.notify.time.sleep") as mock_sleep:
         with pytest.raises(RuntimeError, match="boom"):
-            mojo_downloader.retry(lambda: (_ for _ in ()).throw(RuntimeError("boom")), max_attempts=1, delay_seconds=60)
+            notify.retry(lambda: (_ for _ in ()).throw(RuntimeError("boom")), max_attempts=1, delay_seconds=60)
     mock_sleep.assert_not_called()
