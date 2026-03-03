@@ -20,7 +20,10 @@ Requires:
 
 import logging
 import os
+import smtplib
 import sys
+import time
+from email.mime.text import MIMEText
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from datetime import date
@@ -293,15 +296,63 @@ def download_exports() -> tuple:
 
             return fsbo_path, expired_path
 
-        except PlaywrightTimeoutError as exc:
-            log.exception("Timed out during browser automation: %s", exc)
-            sys.exit(1)
         except Exception as exc:
-            log.exception("Unexpected error during browser automation: %s", exc)
+            log.exception("Browser automation error: %s", exc)
             raise
         finally:
             context.close()
             browser.close()
+
+
+# ---------------------------------------------------------------------------
+# Retry / notification helpers
+# ---------------------------------------------------------------------------
+
+def retry(fn, max_attempts: int = 3, delay_seconds: int = 1800):
+    """Call fn() up to max_attempts times, waiting delay_seconds between tries."""
+    last_exc: Exception = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_attempts:
+                log.warning(
+                    "Attempt %d/%d failed: %s — retrying in %d minutes.",
+                    attempt, max_attempts, exc, delay_seconds // 60,
+                )
+                time.sleep(delay_seconds)
+            else:
+                log.error("All %d attempts failed.", max_attempts)
+    raise last_exc
+
+
+def send_failure_email(error: Exception) -> None:
+    """Send a failure notification email if SMTP env vars are configured."""
+    required = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "NOTIFY_EMAIL"]
+    cfg = {k: os.getenv(k) for k in required}
+    if not all(cfg.values()):
+        log.warning("SMTP not configured — skipping failure email.")
+        return
+
+    subject = f"[mojo-downloader] Export failed on {date.today().isoformat()}"
+    body = (
+        f"The mojo-downloader cron job failed after all retry attempts.\n\n"
+        f"Error: {type(error).__name__}: {error}\n\n"
+        f"Check logs/mojo_downloader.log for the full traceback."
+    )
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = cfg["SMTP_USER"]
+    msg["To"] = cfg["NOTIFY_EMAIL"]
+
+    try:
+        with smtplib.SMTP_SSL(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"])) as server:
+            server.login(cfg["SMTP_USER"], cfg["SMTP_PASSWORD"])
+            server.send_message(msg)
+        log.info("Failure notification sent to %s.", cfg["NOTIFY_EMAIL"])
+    except Exception as smtp_exc:
+        log.error("Failed to send notification email: %s", smtp_exc)
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +381,12 @@ def main() -> None:
             sys.exit(1)
     log.info("No duplicates found — proceeding.")
 
-    fsbo_path, expired_path = download_exports()
+    try:
+        fsbo_path, expired_path = retry(download_exports, max_attempts=3, delay_seconds=1800)
+    except Exception as exc:
+        log.exception("Export failed after all retry attempts.")
+        send_failure_email(exc)
+        sys.exit(1)
 
     fsbo_result    = upload_to_drive(drive_service, fsbo_path,    SHEET_NAME_FSBO,    GOOGLE_DRIVE_FOLDER_ID)
     expired_result = upload_to_drive(drive_service, expired_path, SHEET_NAME_EXPIRED, GOOGLE_DRIVE_FOLDER_ID)
