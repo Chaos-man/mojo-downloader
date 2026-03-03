@@ -11,6 +11,8 @@ Automates the nightly export of **FSBO** and **Expired** leads from [Mojo Sells]
    - `mojo_export_fsbo_YYYY-MM-DD`
    - `mojo_export_expired_YYYY-MM-DD`
 5. Fails immediately if either sheet already exists in Drive for today
+6. Retries the export up to **3 times** (30-minute gaps) if a transient error occurs
+7. Sends a **failure email** after all retries are exhausted (optional — requires SMTP config)
 
 ---
 
@@ -33,7 +35,9 @@ mojo-downloader/
     ├── test_validation.py
     ├── test_drive.py
     ├── test_logging.py
-    └── test_browser.py
+    ├── test_browser.py
+    ├── test_retry.py
+    └── test_notification.py
 ```
 
 ---
@@ -84,7 +88,34 @@ The folder ID is the last segment of the folder's URL in Google Drive:
 4. Download the JSON file and save it as `credentials.json` in the project folder
 5. Ensure the **Google Drive API** is enabled for your project
 
-### 4. Authorize (first run only)
+### 4. (Optional) Configure failure email notifications
+
+If the export fails after all retries, the script can send you an email. Add these to your `.env`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD=your_app_password
+NOTIFY_EMAIL=you@gmail.com
+```
+
+Leave any of these blank (or omit them entirely) to disable notifications — the script runs fine without them.
+
+#### Getting a Gmail App Password
+
+Regular Gmail passwords won't work if you have 2-Step Verification enabled (which you should). Use an App Password instead:
+
+1. Go to your [Google Account](https://myaccount.google.com) → **Security**
+2. Under **"How you sign in to Google"**, click **2-Step Verification** (must be enabled first)
+3. Scroll to the bottom and click **App passwords**
+4. Select app: **Mail**, device: **Other** (type a name like `mojo-downloader`)
+5. Click **Generate** — copy the 16-character password shown
+6. Paste it as `SMTP_PASSWORD` in your `.env` (no spaces)
+
+> The App Password is only shown once. Store it in `.env` immediately.
+
+### 5. Authorize (first run only)
 
 ```bash
 python mojo_downloader.py
@@ -106,7 +137,7 @@ Output is written to both the terminal and `logs/mojo_downloader.log`.
 
 ## Linux Server Deployment
 
-Run the setup script once on your server. It creates the virtual environment, installs all dependencies (including Playwright's Chromium system libraries), and registers a **nightly 1:00 AM cron job** automatically.
+Run the setup script once on your server. It creates the virtual environment, installs all dependencies (including Playwright's Chromium system libraries), and registers a **nightly 5:00 AM cron job** automatically.
 
 ```bash
 bash setup.sh
@@ -157,6 +188,8 @@ pytest tests/ -v
 | `test_drive.py` | `check_sheet_exists()`, `upload_to_drive()`, sheet name format |
 | `test_logging.py` | `setup_logging()` — directory creation, handler config, rotation settings |
 | `test_browser.py` | `_select_all_and_export()` — direct click, dropdown fallback, file saving |
+| `test_retry.py` | `retry()` — success on first attempt, retry on failure, exhaustion behavior |
+| `test_notification.py` | `send_failure_email()` — SMTP call, missing config skip, connection error handling |
 
 ---
 
