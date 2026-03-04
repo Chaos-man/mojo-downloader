@@ -78,6 +78,7 @@ cp .env.example .env
 Edit `.env`:
 
 ```env
+MOJO_URL=https://lb11.mojosells.com/login/
 MOJO_USERNAME=your_mojo_email@example.com
 MOJO_PASSWORD=your_mojo_password
 GOOGLE_DRIVE_FOLDER_ID=your_drive_folder_id_here
@@ -94,16 +95,34 @@ The folder ID is the last segment of the folder's URL in Google Drive:
 4. Download the JSON file and save it as `credentials.json` in the project folder
 5. Ensure the **Google Drive API** is enabled for your project
 
-### 4. (Optional) Configure failure email notifications
+### 4. (Optional) Configure which tables to download
+
+By default the script downloads **FSBO** and **Expired**. To change this, set `MOJO_TABLES` in your `.env`:
+
+```env
+# Single table:
+MOJO_TABLES=FRBO
+
+# Multiple tables (comma-separated, case-insensitive):
+MOJO_TABLES=FSBO,Expired
+
+# Names with spaces — wrap the whole value in double quotes:
+MOJO_TABLES="FSBO,Agent/Corporate Owned,Notice of Sale"
+```
+
+Leave `MOJO_TABLES` blank (or omit it) to use the default: `FSBO,Expired`.
+
+### 5. (Optional) Configure failure email notifications
 
 If the export fails after all retries, the script can send you an email. Add these to your `.env`:
 
 ```env
 SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
+SMTP_PORT=465         # 465 for SSL (default), or 587 for STARTTLS
 SMTP_USER=you@gmail.com
 SMTP_PASSWORD=your_app_password
 NOTIFY_EMAIL=you@gmail.com
+NOTIFY_FROM=noreply@example.com  # optional — defaults to SMTP_USER if omitted
 ```
 
 Leave any of these blank (or omit them entirely) to disable notifications — the script runs fine without them.
@@ -121,7 +140,7 @@ Regular Gmail passwords won't work if you have 2-Step Verification enabled (whic
 
 > The App Password is only shown once. Store it in `.env` immediately.
 
-### 5. Authorize (first run only)
+### 6. Authorize (first run only)
 
 ```bash
 python mojo_downloader.py
@@ -143,6 +162,7 @@ Output is written to both the terminal and `logs/mojo_downloader.log`.
 
 | Flag | Description |
 |---|---|
+| `--cron` | Enable retry loop (up to 3 attempts, 30-min gaps) and send a failure email if all retries are exhausted. Use in scheduled cron jobs. |
 | `--test-notification` | Send a test failure email and exit. Use this to verify your SMTP config works before relying on it. |
 | `--check-drive` | Check whether today's FSBO and Expired sheets already exist in Drive, then exit. |
 | `--show-browser` | Launch Chromium with a visible window instead of headless. Useful for debugging login or navigation issues. |
