@@ -3,7 +3,7 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-import mojo_downloader
+import _mojo.log as log_module
 
 
 def _clear_handlers(logger_name: str):
@@ -14,18 +14,18 @@ def _clear_handlers(logger_name: str):
 
 def test_setup_logging_creates_logs_directory(monkeypatch, tmp_path):
     logs_dir = tmp_path / "logs"
-    monkeypatch.setattr(mojo_downloader, "LOGS_DIR", logs_dir)
+    monkeypatch.setattr(log_module, "LOGS_DIR", logs_dir)
     try:
-        mojo_downloader.setup_logging()
+        log_module.setup_logging()
         assert logs_dir.exists()
     finally:
         _clear_handlers("mojo_downloader")
 
 
 def test_setup_logging_returns_logger(monkeypatch, tmp_path):
-    monkeypatch.setattr(mojo_downloader, "LOGS_DIR", tmp_path / "logs")
+    monkeypatch.setattr(log_module, "LOGS_DIR", tmp_path / "logs")
     try:
-        logger = mojo_downloader.setup_logging()
+        logger = log_module.setup_logging()
         assert isinstance(logger, logging.Logger)
         assert logger.name == "mojo_downloader"
     finally:
@@ -33,9 +33,9 @@ def test_setup_logging_returns_logger(monkeypatch, tmp_path):
 
 
 def test_setup_logging_adds_file_and_console_handlers(monkeypatch, tmp_path):
-    monkeypatch.setattr(mojo_downloader, "LOGS_DIR", tmp_path / "logs")
+    monkeypatch.setattr(log_module, "LOGS_DIR", tmp_path / "logs")
     try:
-        logger = mojo_downloader.setup_logging()
+        logger = log_module.setup_logging()
         handler_types = [type(h) for h in logger.handlers]
         assert logging.StreamHandler in handler_types
         assert TimedRotatingFileHandler in handler_types
@@ -44,9 +44,9 @@ def test_setup_logging_adds_file_and_console_handlers(monkeypatch, tmp_path):
 
 
 def test_file_handler_rotates_weekly(monkeypatch, tmp_path):
-    monkeypatch.setattr(mojo_downloader, "LOGS_DIR", tmp_path / "logs")
+    monkeypatch.setattr(log_module, "LOGS_DIR", tmp_path / "logs")
     try:
-        logger = mojo_downloader.setup_logging()
+        logger = log_module.setup_logging()
         file_handler = next(
             h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)
         )
@@ -57,9 +57,9 @@ def test_file_handler_rotates_weekly(monkeypatch, tmp_path):
 
 
 def test_file_handler_keeps_eight_backups(monkeypatch, tmp_path):
-    monkeypatch.setattr(mojo_downloader, "LOGS_DIR", tmp_path / "logs")
+    monkeypatch.setattr(log_module, "LOGS_DIR", tmp_path / "logs")
     try:
-        logger = mojo_downloader.setup_logging()
+        logger = log_module.setup_logging()
         file_handler = next(
             h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)
         )
@@ -70,9 +70,9 @@ def test_file_handler_keeps_eight_backups(monkeypatch, tmp_path):
 
 def test_log_file_is_inside_logs_dir(monkeypatch, tmp_path):
     logs_dir = tmp_path / "logs"
-    monkeypatch.setattr(mojo_downloader, "LOGS_DIR", logs_dir)
+    monkeypatch.setattr(log_module, "LOGS_DIR", logs_dir)
     try:
-        logger = mojo_downloader.setup_logging()
+        logger = log_module.setup_logging()
         file_handler = next(
             h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)
         )

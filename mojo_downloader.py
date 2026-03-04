@@ -19,11 +19,8 @@ Requires:
 """
 
 import argparse
-import logging
 import os
 import sys
-from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 
 __version__ = "2.1.0"
 
@@ -37,47 +34,8 @@ from _mojo.drive import (
     sheet_name_for,
     upload_to_drive,
 )
+from _mojo.log import LOGS_DIR, log, setup_logging
 from _mojo.notify import retry, send_failure_email
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
-
-LOGS_DIR = Path(__file__).parent / "logs"
-
-log = logging.getLogger("mojo_downloader")
-
-
-def setup_logging() -> logging.Logger:
-    LOGS_DIR.mkdir(exist_ok=True)
-
-    logger = logging.getLogger("mojo_downloader")
-    logger.setLevel(logging.DEBUG)
-
-    fmt = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)-8s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # File handler — rotates every 7 days, keeps 8 rotated files (~2 months total).
-    file_handler = TimedRotatingFileHandler(
-        filename=LOGS_DIR / "mojo_downloader.log",
-        when="midnight",
-        interval=7,
-        backupCount=8,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(fmt)
-
-    # Console handler — mirrors output to the terminal.
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(fmt)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    return logger
 
 
 # ---------------------------------------------------------------------------
