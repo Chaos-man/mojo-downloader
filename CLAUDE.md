@@ -70,13 +70,24 @@ Tests live in [tests/](tests/) and use `pytest` with mocks (no real network call
 | `test_browser.py` | `_select_all_and_export` direct click and dropdown fallback |
 | `test_retry.py` | `retry()` — success, partial failure, exhaustion |
 | `test_notification.py` | `send_failure_email()` — SMTP call, missing config, `--test-notification` flag |
-| `test_cli.py` | All five CLI flags |
+| `test_cli.py` | All six CLI flags |
 
 Shared fixtures (mocked Drive service, temp `credentials.json`) are in [tests/conftest.py](tests/conftest.py).
 
 ## Key Constants
 
+- `mojo_downloader.__version__` — current version string (update when releasing)
+- `_mojo.PROJECT_ROOT` — project root path (`Path(__file__).parent.parent`); imported by `browser.py` and `drive.py` for all file paths
 - `_mojo.browser.MOJO_URL` — login URL (from `MOJO_URL` env var, required)
 - `_mojo.drive.SHEET_NAME_FSBO` / `_mojo.drive.SHEET_NAME_EXPIRED` — today's sheet names (set at import time)
 - `_mojo.browser.DOWNLOAD_TIMEOUT_MS` — 360,000 ms
 - `_mojo.browser.HEADLESS` — set to `False` via `--show-browser` flag for local debugging
+
+## Release Workflow
+
+1. Update `__version__` in [mojo_downloader.py](mojo_downloader.py)
+2. Update [CHANGELOG.md](CHANGELOG.md)
+3. `git commit -m "Bump version to X.Y.Z"`
+4. `git tag vX.Y.Z`
+5. `git push && git push --tags`
+6. GitHub Actions (`.github/workflows/release.yml`) creates the GitHub Release automatically

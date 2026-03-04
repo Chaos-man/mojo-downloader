@@ -25,6 +25,8 @@ import sys
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
+__version__ = "2.1.0"
+
 from _mojo import browser as _browser
 from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, download_exports
 from _mojo.drive import (
@@ -138,7 +140,14 @@ def parse_tables() -> list[str]:
 # ---------------------------------------------------------------------------
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Mojo Sells lead exporter")
+    parser = argparse.ArgumentParser(
+        description="Download FSBO and Expired leads from Mojo Sells and upload to Google Drive.",
+        epilog="Run with --cron in scheduled jobs for retry logic and failure email.",
+    )
+    parser.add_argument(
+        "--version", action="version",
+        version=f"%(prog)s {__version__}",
+    )
     parser.add_argument(
         "--test-notification", action="store_true",
         help="Send a test failure email and exit (verifies SMTP config).",
