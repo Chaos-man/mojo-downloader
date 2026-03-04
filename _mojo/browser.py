@@ -12,7 +12,7 @@ load_dotenv()
 
 log = logging.getLogger("mojo_downloader")
 
-MOJO_URL = "https://lb11.mojosells.com/login/"
+MOJO_URL = os.getenv("MOJO_URL")
 MOJO_USERNAME = os.getenv("MOJO_USERNAME")
 MOJO_PASSWORD = os.getenv("MOJO_PASSWORD")
 

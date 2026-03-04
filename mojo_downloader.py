@@ -26,7 +26,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 from _mojo import browser as _browser
-from _mojo.browser import MOJO_USERNAME, MOJO_PASSWORD, download_exports
+from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, download_exports
 from _mojo.drive import (
     CREDENTIALS_FILE,
     GOOGLE_DRIVE_FOLDER_ID,
@@ -84,6 +84,7 @@ def setup_logging() -> logging.Logger:
 
 def validate_env() -> None:
     required = {
+        "MOJO_URL": MOJO_URL,
         "MOJO_USERNAME": MOJO_USERNAME,
         "MOJO_PASSWORD": MOJO_PASSWORD,
         "GOOGLE_DRIVE_FOLDER_ID": GOOGLE_DRIVE_FOLDER_ID,

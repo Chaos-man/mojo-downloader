@@ -13,6 +13,7 @@ import mojo_downloader
 # ---------------------------------------------------------------------------
 
 REQUIRED_ENV = {
+    "MOJO_URL": "https://example.com/login/",
     "MOJO_USERNAME": "user@example.com",
     "MOJO_PASSWORD": "password",
     "GOOGLE_DRIVE_FOLDER_ID": "folder123",
@@ -44,6 +45,7 @@ def _mock_drive_service(fsbo_exists=False, expired_exists=False):
 
 def test_check_drive_exits_zero(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--check-drive"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -54,6 +56,7 @@ def test_check_drive_exits_zero(monkeypatch, credentials_file):
 
 def test_check_drive_calls_check_sheet_exists_for_both_sheets(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--check-drive"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -69,6 +72,7 @@ def test_check_drive_calls_check_sheet_exists_for_both_sheets(monkeypatch, crede
 
 def test_force_skips_duplicate_check(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--force"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -82,6 +86,7 @@ def test_force_skips_duplicate_check(monkeypatch, credentials_file):
 def test_force_passes_continue_on_error(monkeypatch, credentials_file):
     """--force calls download_exports with continue_on_error=True."""
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--force", "--dry-run"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -95,6 +100,7 @@ def test_force_passes_continue_on_error(monkeypatch, credentials_file):
 def test_force_uploads_only_successful_tables(monkeypatch, credentials_file):
     """When only some tables succeed, --force uploads only the successful ones."""
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--force"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     partial = {"FSBO": Path("/tmp/fsbo.xlsx")}  # Expired failed and was skipped
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
@@ -140,6 +146,7 @@ def test_force_cron_together_exits_one(monkeypatch, credentials_file):
 def test_cron_calls_retry(monkeypatch, credentials_file):
     """--cron mode invokes retry() instead of calling download_exports directly."""
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--cron", "--dry-run"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -154,6 +161,7 @@ def test_cron_calls_retry(monkeypatch, credentials_file):
 def test_cron_sends_email_on_all_retries_exhausted(monkeypatch, credentials_file):
     """--cron sends failure email and exits 1 when retry() raises."""
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--cron"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -172,6 +180,7 @@ def test_cron_sends_email_on_all_retries_exhausted(monkeypatch, credentials_file
 
 def test_dry_run_skips_upload_and_exits_zero(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--dry-run"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -191,6 +200,7 @@ def test_dry_run_skips_upload_and_exits_zero(monkeypatch, credentials_file):
 def test_show_browser_sets_headless_false(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--show-browser", "--dry-run"])
     monkeypatch.setattr(browser, "HEADLESS", True)
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
@@ -207,6 +217,7 @@ def test_show_browser_sets_headless_false(monkeypatch, credentials_file):
 
 def test_default_runs_duplicate_check(monkeypatch, credentials_file):
     monkeypatch.setattr("sys.argv", ["mojo_downloader.py"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):

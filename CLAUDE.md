@@ -76,7 +76,7 @@ Shared fixtures (mocked Drive service, temp `credentials.json`) are in [tests/co
 
 ## Key Constants
 
-- `_mojo.browser.MOJO_URL` — login URL
+- `_mojo.browser.MOJO_URL` — login URL (from `MOJO_URL` env var, required)
 - `_mojo.drive.SHEET_NAME_FSBO` / `_mojo.drive.SHEET_NAME_EXPIRED` — today's sheet names (set at import time)
 - `_mojo.browser.DOWNLOAD_TIMEOUT_MS` — 360,000 ms
 - `_mojo.browser.HEADLESS` — set to `False` via `--show-browser` flag for local debugging
