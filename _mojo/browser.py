@@ -8,6 +8,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeoutError
 
+from _mojo import PROJECT_ROOT
+
 load_dotenv()
 
 log = logging.getLogger("mojo_downloader")
@@ -16,7 +18,7 @@ MOJO_URL = os.getenv("MOJO_URL")
 MOJO_USERNAME = os.getenv("MOJO_USERNAME")
 MOJO_PASSWORD = os.getenv("MOJO_PASSWORD")
 
-DOWNLOADS_DIR = Path(__file__).parent / "downloads"
+DOWNLOADS_DIR = PROJECT_ROOT / "downloads"
 
 # The export can take up to 5 minutes; give it 6 to be safe.
 DOWNLOAD_TIMEOUT_MS = 360_000

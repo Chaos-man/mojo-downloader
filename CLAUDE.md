@@ -77,6 +77,7 @@ Shared fixtures (mocked Drive service, temp `credentials.json`) are in [tests/co
 ## Key Constants
 
 - `mojo_downloader.__version__` — current version string (update when releasing)
+- `_mojo.PROJECT_ROOT` — project root path (`Path(__file__).parent.parent`); imported by `browser.py` and `drive.py` for all file paths
 - `_mojo.browser.MOJO_URL` — login URL (from `MOJO_URL` env var, required)
 - `_mojo.drive.SHEET_NAME_FSBO` / `_mojo.drive.SHEET_NAME_EXPIRED` — today's sheet names (set at import time)
 - `_mojo.browser.DOWNLOAD_TIMEOUT_MS` — 360,000 ms

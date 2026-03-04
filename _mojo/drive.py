@@ -12,6 +12,8 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from _mojo import PROJECT_ROOT
+
 load_dotenv()
 
 log = logging.getLogger("mojo_downloader")
@@ -19,8 +21,8 @@ log = logging.getLogger("mojo_downloader")
 GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
 # OAuth credential files — keep both out of version control (.gitignore).
-CREDENTIALS_FILE = Path(__file__).parent / "credentials.json"  # downloaded from Google Cloud Console
-TOKEN_FILE = Path(__file__).parent / "token.json"              # auto-created after first auth
+CREDENTIALS_FILE = PROJECT_ROOT / "credentials.json"  # downloaded from Google Cloud Console
+TOKEN_FILE       = PROJECT_ROOT / "token.json"         # auto-created after first auth
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
