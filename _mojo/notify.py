@@ -45,13 +45,20 @@ def send_failure_email(error: Exception) -> None:
     )
     msg = MIMEText(body)
     msg["Subject"] = subject
-    msg["From"] = cfg["SMTP_USER"]
+    msg["From"] = os.getenv("NOTIFY_FROM") or cfg["SMTP_USER"]
     msg["To"] = cfg["NOTIFY_EMAIL"]
 
     try:
-        with smtplib.SMTP_SSL(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"])) as server:
-            server.login(cfg["SMTP_USER"], cfg["SMTP_PASSWORD"])
-            server.send_message(msg)
+        port = int(cfg["SMTP_PORT"])
+        if port == 587:
+            with smtplib.SMTP(cfg["SMTP_HOST"], port) as server:
+                server.starttls()
+                server.login(cfg["SMTP_USER"], cfg["SMTP_PASSWORD"])
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP_SSL(cfg["SMTP_HOST"], port) as server:
+                server.login(cfg["SMTP_USER"], cfg["SMTP_PASSWORD"])
+                server.send_message(msg)
         log.info("Failure notification sent to %s.", cfg["NOTIFY_EMAIL"])
     except Exception as smtp_exc:
         log.error("Failed to send notification email: %s", smtp_exc)
