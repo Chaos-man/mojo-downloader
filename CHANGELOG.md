@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] – 2026-03-04
+### Added
+- `--version` flag
+- GitHub Actions release workflow (`release.yml`)
+### Fixed
+- Path regression introduced when internals moved to `_mojo/`
+### Changed
+- CI: code review workflow now runs only on PRs marked ready for review
+- CI: removed explicit `--model` and `--max-turns` args from code review workflow
+
 ## [2.1.0] – 2026-03-03
 ### Added
 - `NOTIFY_FROM` env var to override the From address in failure emails (defaults to `SMTP_USER`)

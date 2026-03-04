@@ -22,7 +22,7 @@ import argparse
 import os
 import sys
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 from _mojo import browser as _browser
 from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, download_exports
