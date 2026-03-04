@@ -78,6 +78,44 @@ def test_test_notification_flag_sends_email_and_exits(monkeypatch):
     mock_server.send_message.assert_called_once()
 
 
+def test_sends_email_via_starttls_on_port_587():
+    """Uses SMTP + starttls() when SMTP_PORT is 587."""
+    error = RuntimeError("test error")
+    mock_server = MagicMock()
+    mock_ctx = MagicMock()
+    mock_ctx.__enter__ = MagicMock(return_value=mock_server)
+    mock_ctx.__exit__ = MagicMock(return_value=False)
+
+    env = {**SMTP_ENV, "SMTP_PORT": "587"}
+    with patch.dict("os.environ", env, clear=False):
+        with patch("smtplib.SMTP", return_value=mock_ctx) as mock_smtp:
+            with patch("smtplib.SMTP_SSL") as mock_ssl:
+                mojo_downloader.send_failure_email(error)
+
+    mock_smtp.assert_called_once_with("smtp.gmail.com", 587)
+    mock_server.starttls.assert_called_once()
+    mock_server.login.assert_called_once_with("sender@example.com", "secret")
+    mock_server.send_message.assert_called_once()
+    mock_ssl.assert_not_called()
+
+
+def test_sends_email_with_notify_from_override():
+    """Uses NOTIFY_FROM as the From address when set."""
+    error = RuntimeError("test error")
+    mock_server = MagicMock()
+    mock_ctx = MagicMock()
+    mock_ctx.__enter__ = MagicMock(return_value=mock_server)
+    mock_ctx.__exit__ = MagicMock(return_value=False)
+
+    env = {**SMTP_ENV, "NOTIFY_FROM": "noreply@example.com"}
+    with patch.dict("os.environ", env, clear=False):
+        with patch("smtplib.SMTP_SSL", return_value=mock_ctx):
+            mojo_downloader.send_failure_email(error)
+
+    sent_msg = mock_server.send_message.call_args[0][0]
+    assert sent_msg["From"] == "noreply@example.com"
+
+
 def test_smtp_connection_error_does_not_raise():
     """If the SMTP call itself raises, send_failure_email catches it and does not propagate."""
     mock_ctx = MagicMock()
