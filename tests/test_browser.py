@@ -104,3 +104,42 @@ def test_select_all_uses_label_in_fallback_filename(tmp_path, monkeypatch):
         page, mock_download = _make_page_mock(tmp_path, suggested_filename="")
         result = browser._select_all_and_export(page, label)
         assert label.lower() in result.name.lower()
+
+
+# ---------------------------------------------------------------------------
+# _find_table_filter
+# ---------------------------------------------------------------------------
+
+def _make_filter_page(text_content: str):
+    """Return a mock page whose filter locator yields one element with the given text."""
+    page = MagicMock()
+    el = MagicMock()
+    el.text_content.return_value = text_content
+    page.locator.return_value.all.return_value = [el]
+    return page, el
+
+
+def test_find_table_filter_exact_match():
+    """Finds the element when text matches exactly."""
+    page, el = _make_filter_page("FSBO")
+    assert browser._find_table_filter(page, "FSBO") is el
+
+
+def test_find_table_filter_case_insensitive():
+    """Matches regardless of case in the label or page text."""
+    page, el = _make_filter_page("FSBO")
+    assert browser._find_table_filter(page, "fsbo") is el
+
+
+def test_find_table_filter_trims_whitespace():
+    """Trims surrounding whitespace from both the label and page text."""
+    page, el = _make_filter_page("  FSBO  ")
+    assert browser._find_table_filter(page, " fsbo ") is el
+
+
+def test_find_table_filter_raises_when_not_found():
+    """Raises ValueError when no element matches the label."""
+    page = MagicMock()
+    page.locator.return_value.all.return_value = []
+    with pytest.raises(ValueError, match="not found"):
+        browser._find_table_filter(page, "NonExistent")
