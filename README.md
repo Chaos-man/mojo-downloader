@@ -20,9 +20,10 @@ Automates the nightly export of **FSBO** and **Expired** leads from [Mojo Sells]
 
 ```
 mojo-downloader/
-├── mojo_downloader.py      # Entry point — logging, validation, CLI, main()
+├── mojo_downloader.py      # Entry point — validation, CLI, main()
 ├── _mojo/                  # Internal package (not for direct use)
 │   ├── __init__.py
+│   ├── log.py              # Logging setup (LOGS_DIR, setup_logging)
 │   ├── browser.py          # Playwright automation (login, export)
 │   ├── drive.py            # Google Drive helpers (auth, check, upload)
 │   └── notify.py           # Retry logic and SMTP failure email

@@ -42,7 +42,8 @@ The application is split into four focused modules:
 
 | Module | Responsibility |
 |---|---|
-| [mojo_downloader.py](mojo_downloader.py) | Entry point — `setup_logging()`, `validate_env()`, `parse_args()`, `main()` |
+| [mojo_downloader.py](mojo_downloader.py) | Entry point — `validate_env()`, `parse_args()`, `main()` |
+| [_mojo/log.py](_mojo/log.py) | Logging setup — `LOGS_DIR`, `log`, `setup_logging()` |
 | [_mojo/browser.py](_mojo/browser.py) | Playwright automation — login, filter, select-all, export |
 | [_mojo/drive.py](_mojo/drive.py) | Google Drive helpers — OAuth, `check_sheet_exists()`, `upload_to_drive()` |
 | [_mojo/notify.py](_mojo/notify.py) | Retry logic and SMTP failure email |
@@ -78,6 +79,7 @@ Shared fixtures (mocked Drive service, temp `credentials.json`) are in [tests/co
 
 - `mojo_downloader.__version__` — current version string (update when releasing)
 - `_mojo.PROJECT_ROOT` — project root path (`Path(__file__).parent.parent`); imported by `browser.py` and `drive.py` for all file paths
+- `_mojo.log.LOGS_DIR` — path to the `logs/` directory (`PROJECT_ROOT / "logs"`)
 - `_mojo.browser.MOJO_URL` — login URL (from `MOJO_URL` env var, required)
 - `_mojo.drive.SHEET_NAME_FSBO` / `_mojo.drive.SHEET_NAME_EXPIRED` — today's sheet names (set at import time)
 - `_mojo.browser.DOWNLOAD_TIMEOUT_MS` — 360,000 ms
