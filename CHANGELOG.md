@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.1] – 2026-03-10
+### Fixed
+- Unhandled exception when `get_drive_service()` fails in cron mode — now logs, sends failure email, and exits cleanly
+### Changed
+- CI: code review workflow now uses Haiku 4.5
+
 ## [2.2.0] – 2026-03-04
 ### Added
 - `--version` flag
