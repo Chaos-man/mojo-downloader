@@ -154,7 +154,13 @@ def main() -> None:
         sys.exit(1)
 
     validate_env()
-    drive_service = get_drive_service()
+    try:
+        drive_service = get_drive_service()
+    except Exception as exc:
+        log.exception("Failed to initialize Google Drive service.")
+        if args.cron:
+            send_failure_email(exc)
+        sys.exit(1)
     tables = parse_tables()
 
     # --check-drive: query Drive for today's sheets and exit.
