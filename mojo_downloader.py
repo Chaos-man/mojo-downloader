@@ -22,10 +22,11 @@ import argparse
 import os
 import sys
 
-__version__ = "2.2.1"
+__version__ = "3.0.0"
 
 from _mojo import browser as _browser
 from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, download_exports
+from _mojo.filter import filter_by_county
 from _mojo.drive import (
     CREDENTIALS_FILE,
     GOOGLE_DRIVE_FOLDER_ID,
@@ -93,6 +94,18 @@ def parse_tables() -> list[str]:
     return list(seen.values())
 
 
+def parse_counties() -> set[str]:
+    """Parse FILTER_COUNTIES env var into a set of county names.
+
+    Matching is done case-insensitively at filter time.
+    Returns an empty set (no filtering) if the var is blank or missing.
+    """
+    raw = os.getenv("FILTER_COUNTIES", "").strip()
+    if not raw:
+        return set()
+    return {c.strip() for c in raw.split(",") if c.strip()}
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -120,7 +133,7 @@ def parse_args():
     )
     parser.add_argument(
         "--dry-run", action="store_true",
-        help="Download exports but skip the Drive upload.",
+        help="Download exports but skip the Drive upload (also skips the duplicate-sheet check).",
     )
     parser.add_argument(
         "--force", action="store_true",
@@ -171,8 +184,8 @@ def main() -> None:
             log.info("%-55s %s", name, "EXISTS" if exists else "not found")
         sys.exit(0)
 
-    # Duplicate-sheet guard — skipped only by --force.
-    if not args.force:
+    # Duplicate-sheet guard — skipped by --force or --dry-run (dry-run never uploads).
+    if not args.force and not args.dry_run:
         for table in tables:
             name = sheet_name_for(table)
             log.info("Checking Drive folder for existing sheet '%s'...", name)
@@ -222,6 +235,16 @@ def main() -> None:
         except Exception as exc:
             log.error("Download failed: %s", exc)
             sys.exit(1)
+
+    # Apply county filter if configured.
+    counties = parse_counties()
+    if counties:
+        for table, path in results.items():
+            found = filter_by_county(path, counties, table)
+            if not found:
+                send_failure_email(RuntimeError(
+                    f"County column not found in {table} export — rows were not filtered by county."
+                ))
 
     # --dry-run: skip the Drive upload.
     if args.dry_run:

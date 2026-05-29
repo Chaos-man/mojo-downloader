@@ -17,6 +17,7 @@ REQUIRED_ENV = {
     "MOJO_USERNAME": "user@example.com",
     "MOJO_PASSWORD": "password",
     "GOOGLE_DRIVE_FOLDER_ID": "folder123",
+    "FILTER_COUNTIES": "",  # disable county filter in CLI tests; filter logic is tested separately
 }
 
 FAKE_RESULTS = {
@@ -184,13 +185,14 @@ def test_dry_run_skips_upload_and_exits_zero(monkeypatch, credentials_file):
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
-            with patch("mojo_downloader.check_sheet_exists", return_value=False):
+            with patch("mojo_downloader.check_sheet_exists") as mock_check:
                 with patch("mojo_downloader.download_exports", return_value=FAKE_RESULTS):
                     with patch("mojo_downloader.upload_to_drive") as mock_upload:
                         with pytest.raises(SystemExit) as exc:
                             mojo_downloader.main()
     assert exc.value.code == 0
     mock_upload.assert_not_called()
+    mock_check.assert_not_called()  # --dry-run skips the duplicate-sheet check
 
 
 # ---------------------------------------------------------------------------

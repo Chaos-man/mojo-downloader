@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] – 2026-05-28
+### Added
+- County field selection in export modal — `_ensure_county_checked()` automatically checks the County field in the Mojo export dialog before confirming, ensuring it is included in every download
+- Post-download county filter — new `_mojo/filter.py` module with `filter_by_county()` removes rows whose county is not in the configured list before uploading to Drive
+- `FILTER_COUNTIES` env var — comma-separated list of counties to keep (case-insensitive, spaces supported); leave blank to upload all rows unfiltered
+- Failure email notification when the County column is absent from an exported XLSX (export and upload still continue)
+- `openpyxl>=3.1.0` added as a runtime dependency
+### Fixed
+- `--dry-run` was silently blocked by the duplicate-sheet guard when today's sheets already existed on Drive — it now correctly skips that check (since it never uploads anyway)
+
 ## [2.2.1] – 2026-03-10
 ### Fixed
 - Unhandled exception when `get_drive_service()` fails in cron mode — now logs, sends failure email, and exits cleanly

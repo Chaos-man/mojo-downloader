@@ -5,14 +5,15 @@ Automates the nightly export of **FSBO** and **Expired** leads from [Mojo Sells]
 ## What It Does
 
 1. Logs in to Mojo Sells using your credentials
-2. Navigates to **Data & Dialer → FSBO**, selects all records, and exports
+2. Navigates to **Data & Dialer → FSBO**, ensures the **County** field is checked, selects all records, and exports
 3. Closes the export dialog, switches to **Expired**, and repeats
-4. Uploads both `.xlsx` files to a specified Google Drive folder as Google Sheets named:
+4. Filters each export to keep only rows whose county matches your configured list (optional)
+5. Uploads both `.xlsx` files to a specified Google Drive folder as Google Sheets named:
    - `mojo_export_fsbo_YYYY-MM-DD`
    - `mojo_export_expired_YYYY-MM-DD`
-5. Fails immediately if either sheet already exists in Drive for today
-6. Retries the export up to **3 times** (30-minute gaps) if a transient error occurs
-7. Sends a **failure email** after all retries are exhausted (optional — requires SMTP config)
+6. Fails immediately if either sheet already exists in Drive for today
+7. Retries the export up to **3 times** (30-minute gaps) if a transient error occurs
+8. Sends a **failure email** after all retries are exhausted (optional — requires SMTP config)
 
 ---
 
@@ -24,8 +25,9 @@ mojo-downloader/
 ├── _mojo/                  # Internal package (not for direct use)
 │   ├── __init__.py
 │   ├── log.py              # Logging setup (LOGS_DIR, setup_logging)
-│   ├── browser.py          # Playwright automation (login, export)
+│   ├── browser.py          # Playwright automation (login, export, county field check)
 │   ├── drive.py            # Google Drive helpers (auth, check, upload)
+│   ├── filter.py           # Post-download XLSX county filter
 │   └── notify.py           # Retry logic and SMTP failure email
 ├── setup.sh                # One-time Linux server setup + cron registration
 ├── requirements.txt        # Production dependencies
@@ -42,6 +44,7 @@ mojo-downloader/
     ├── test_drive.py
     ├── test_logging.py
     ├── test_browser.py
+    ├── test_filter.py
     ├── test_retry.py
     ├── test_notification.py
     └── test_cli.py
@@ -96,7 +99,20 @@ The folder ID is the last segment of the folder's URL in Google Drive:
 4. Download the JSON file and save it as `credentials.json` in the project folder
 5. Ensure the **Google Drive API** is enabled for your project
 
-### 4. (Optional) Configure which tables to download
+### 4. (Optional) Filter exports by county
+
+To keep only rows from specific counties, set `FILTER_COUNTIES` in your `.env`:
+
+```env
+# Comma-separated county names (case-insensitive, spaces allowed):
+FILTER_COUNTIES=New Castle,Chester,Delaware,Montgomery,Philadelphia,Bucks
+```
+
+Rows with any other county value (or a blank county field) are removed before upload. Leave `FILTER_COUNTIES` blank (or omit it) to upload all rows unfiltered.
+
+> **Note:** The County field must be selected in the Mojo export dialog for filtering to work. The script automatically checks it for you — if it cannot find the field, a warning is logged and a notification email is sent (if SMTP is configured), but the export continues.
+
+### 5. (Optional) Configure which tables to download
 
 By default the script downloads **FSBO** and **Expired**. To change this, set `MOJO_TABLES` in your `.env`:
 
@@ -113,7 +129,7 @@ MOJO_TABLES="FSBO,Agent/Corporate Owned,Notice of Sale"
 
 Leave `MOJO_TABLES` blank (or omit it) to use the default: `FSBO,Expired`.
 
-### 5. (Optional) Configure failure email notifications
+### 6. (Optional) Configure failure email notifications
 
 If the export fails after all retries, the script can send you an email. Add these to your `.env`:
 
@@ -141,7 +157,7 @@ Regular Gmail passwords won't work if you have 2-Step Verification enabled (whic
 
 > The App Password is only shown once. Store it in `.env` immediately.
 
-### 6. Authorize (first run only)
+### 7. Authorize (first run only)
 
 ```bash
 python mojo_downloader.py
@@ -167,7 +183,7 @@ Output is written to both the terminal and `logs/mojo_downloader.log`.
 | `--test-notification` | Send a test failure email and exit. Use this to verify your SMTP config works before relying on it. |
 | `--check-drive` | Check whether today's FSBO and Expired sheets already exist in Drive, then exit. |
 | `--show-browser` | Launch Chromium with a visible window instead of headless. Useful for debugging login or navigation issues. |
-| `--dry-run` | Run the browser automation and download exports, but skip the Drive upload. |
+| `--dry-run` | Run the browser automation and download exports, but skip the Drive upload and the duplicate-sheet check. |
 | `--force` | Skip the duplicate-sheet check. Useful when you need to re-run after a partial failure without deleting the existing sheets first. |
 
 ```bash
@@ -242,6 +258,7 @@ pytest tests/ -v
 | `test_drive.py` | `check_sheet_exists()`, `upload_to_drive()`, sheet name format |
 | `test_logging.py` | `setup_logging()` — directory creation, handler config, rotation settings |
 | `test_browser.py` | `_select_all_and_export()` — direct click, dropdown fallback, file saving |
+| `test_filter.py` | `filter_by_county()` — matching, case-insensitivity, empty-set no-op, missing column warning |
 | `test_retry.py` | `retry()` — success on first attempt, retry on failure, exhaustion behavior |
 | `test_notification.py` | `send_failure_email()` — SMTP call, missing config skip, connection error handling, `--test-notification` flag |
 | `test_cli.py` | CLI flags — `--check-drive`, `--force`, `--dry-run`, `--show-browser`, default behaviour |

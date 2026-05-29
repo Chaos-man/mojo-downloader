@@ -12,6 +12,9 @@ logs/
 # Claude Code
 .claude/
 
+# graphify knowledge graph (generated, rebuildable)
+graphify-out/
+
 # Python
 __pycache__/
 *.py[cod]

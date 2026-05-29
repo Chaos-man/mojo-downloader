@@ -26,6 +26,27 @@ DOWNLOAD_TIMEOUT_MS = 360_000
 HEADLESS = True
 
 
+def _ensure_county_checked(page: Page, label: str) -> None:
+    """Check the County field in the export modal if it is not already selected.
+
+    The field uses a custom button-based checkbox (not a real <input>); state is
+    indicated by the img src — "off" in the path means unchecked.
+    """
+    try:
+        # The field is a DataColumns_field div whose text content is "County".
+        county_field = page.locator('div.DataColumns_field__RqWZR').filter(has_text="County")
+        county_btn = county_field.locator('button.Checkbox_Checkbox__FWKJN')
+        img_src = county_btn.locator('img').get_attribute('src', timeout=3000)
+        if img_src and 'off' in img_src:
+            county_btn.click()
+            page.wait_for_timeout(300)
+            log.info("%s: County field was unchecked — checked it.", label)
+        else:
+            log.debug("%s: County field already checked.", label)
+    except PlaywrightTimeoutError:
+        log.warning("%s: County field not found in export modal — skipping.", label)
+
+
 def _select_all_and_export(page: Page, label: str) -> Path:
     """Select all records for the current filter, export, and return the saved file path."""
 
@@ -47,6 +68,9 @@ def _select_all_and_export(page: Page, label: str) -> Path:
     log.info("Opening %s export dialog...", label)
     page.click('a[role="button"]:has-text("Export")')
     page.wait_for_timeout(500)
+
+    # Ensure the County field is checked before confirming.
+    _ensure_county_checked(page, label)
 
     # Second click triggers the actual download. Server may take up to 5 minutes.
     log.info("Confirming %s export — server may take up to 5 minutes to prepare the file...", label)
