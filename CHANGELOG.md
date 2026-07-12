@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] – 2026-07-12
+### Fixed
+- `networkidle` waits after opening Data & Dialer and after applying a table filter timed out because the Mojo Sells site now holds persistent WebSocket connections open (ProductFruits onboarding widget, activity-stream), which prevented the network from ever going idle — replaced both waits with `page.expect_response()` matched on the `table-data` XHR that actually signals the filtered data has loaded
+
 ## [3.0.0] – 2026-05-28
 ### Added
 - County field selection in export modal — `_ensure_county_checked()` automatically checks the County field in the Mojo export dialog before confirming, ensuring it is included in every download

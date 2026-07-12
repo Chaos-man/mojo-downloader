@@ -146,8 +146,10 @@ def download_exports(
             #   FSBO Leads:    button.ProductWidget_widgetElement__RqNtF:has-text("FSBO Leads")
             #   Expired Leads: button.ProductWidget_widgetElement__RqNtF:has-text("Expired Leads")
             log.info("Navigating to Data & Dialer contacts...")
-            page.click('#menu-button-my-data')
-            page.wait_for_load_state("networkidle")
+            with page.expect_response(
+                lambda r: "table-data" in r.url and r.status == 200, timeout=15000
+            ):
+                page.click('#menu-button-my-data')
 
             # ------------------------------------------------------------------
             # Step 3: For each configured table — filter, select all, export
@@ -156,8 +158,10 @@ def download_exports(
                 try:
                     log.info("Applying %s filter...", table)
                     el = _find_table_filter(page, table)
-                    el.click()
-                    page.wait_for_load_state("networkidle")
+                    with page.expect_response(
+                        lambda r: "table-data" in r.url and r.status == 200, timeout=15000
+                    ):
+                        el.click()
 
                     path = _select_all_and_export(page, table)
                     results[table] = path
