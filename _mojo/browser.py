@@ -152,6 +152,13 @@ def download_exports(
             page.fill('input[name="password"]', MOJO_PASSWORD)
             page.click('button[type="submit"]')
             page.wait_for_load_state("networkidle")
+
+            # Mojo re-renders the login form in place on failure (no navigation),
+            # showing this error div — check for it before assuming success.
+            error_el = page.locator('.Form_NonFieldErrors__el6fn')
+            if error_el.count() > 0 and error_el.first.is_visible():
+                error_text = error_el.first.text_content().strip()
+                raise RuntimeError(f"Mojo login failed: {error_text}")
             log.info("Logged in.")
 
             # ------------------------------------------------------------------

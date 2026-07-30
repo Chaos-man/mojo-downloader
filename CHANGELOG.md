@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] – 2026-07-30
+### Fixed
+- Failed login was not detected — Mojo re-renders the login form in place on invalid credentials (no navigation), so the code assumed success and proceeded to the next step, which failed 30 seconds later with a confusing, unrelated `#menu-button-my-data` timeout. `download_exports()` now checks for the `Form_NonFieldErrors__el6fn` error div after submitting login and raises a clear `RuntimeError` with Mojo's actual error message (e.g. "Invalid login/password")
+
 ## [3.1.0] – 2026-07-30
 ### Added
 - Empty-table handling — after applying a table's filter, `_table_is_empty()` checks the contact table's row count; a table with no rows is skipped (no select-all, export, or download attempted) and the next table's filter is still applied

@@ -197,6 +197,7 @@ def test_download_exports_skips_empty_table_and_continues(monkeypatch, tmp_path)
 
     page = MagicMock()
     page.expect_response = _fake_expect_response
+    page.locator.return_value.count.return_value = 0
     monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
 
     fsbo_el, expired_el = MagicMock(), MagicMock()
@@ -218,12 +219,34 @@ def test_download_exports_skips_empty_table_and_continues(monkeypatch, tmp_path)
     mock_export.assert_called_once_with(page, "Expired")
 
 
+def test_download_exports_raises_clear_error_on_invalid_login(monkeypatch, tmp_path):
+    """A visible '.Form_NonFieldErrors__el6fn' after submit raises a clear login error
+    instead of proceeding to navigation and failing later with an unrelated timeout."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.expect_response = _fake_expect_response
+    error_el = page.locator.return_value
+    error_el.count.return_value = 1
+    error_el.first.is_visible.return_value = True
+    error_el.first.text_content.return_value = "Invalid login/password"
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+
+    with pytest.raises(RuntimeError, match="Invalid login/password"):
+        browser.download_exports(["FSBO", "Expired"], continue_on_error=False)
+
+    page.click.assert_any_call('button[type="submit"]')
+    # Must not have proceeded to click the Data & Dialer nav button.
+    assert call('#menu-button-my-data') not in page.click.call_args_list
+
+
 def test_download_exports_all_tables_empty(monkeypatch, tmp_path):
     """When every table is empty, results is empty and empty_tables lists them all."""
     monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
 
     page = MagicMock()
     page.expect_response = _fake_expect_response
+    page.locator.return_value.count.return_value = 0
     monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
 
     monkeypatch.setattr(browser, "_find_table_filter", lambda page, label: MagicMock())
