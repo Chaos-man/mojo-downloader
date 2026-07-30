@@ -18,6 +18,7 @@ REQUIRED_ENV = {
     "MOJO_PASSWORD": "password",
     "GOOGLE_DRIVE_FOLDER_ID": "folder123",
     "FILTER_COUNTIES": "",  # disable county filter in CLI tests; filter logic is tested separately
+    "MOJO_TABLES": "FSBO,Expired",  # pin to the 2-table default; real .env may configure more
 }
 
 FAKE_RESULTS = {
