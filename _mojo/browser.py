@@ -47,6 +47,20 @@ def _ensure_county_checked(page: Page, label: str) -> None:
         log.warning("%s: County field not found in export modal — skipping.", label)
 
 
+def _table_is_empty(page: Page, label: str) -> bool:
+    """Return True if the currently filtered table has no rows.
+
+    Checked via the row count in the contact table's <tbody>, which renders
+    with zero <tr> children when the applied filter matches no records.
+    """
+    page.wait_for_timeout(500)
+    count = page.locator("tbody.Table_tbody__WYAlK tr").count()
+    if count == 0:
+        log.info("%s: table is empty after filter — skipping export.", label)
+        return True
+    return False
+
+
 def _select_all_and_export(page: Page, label: str) -> Path:
     """Select all records for the current filter, export, and return the saved file path."""
 
@@ -104,8 +118,11 @@ def _find_table_filter(page: Page, label: str):
 def download_exports(
     tables: list[str] | None = None,
     continue_on_error: bool = False,
-) -> dict[str, Path]:
-    """Run the full browser session and return a dict mapping table label to downloaded Path.
+) -> tuple[dict[str, Path], list[str]]:
+    """Run the full browser session and return (results, empty_tables).
+
+    results maps table label to downloaded Path. empty_tables lists labels whose
+    filtered table had no rows — those are skipped and never attempted for export.
 
     Args:
         tables: Labels of the tables to download. Defaults to ['FSBO', 'Expired'].
@@ -117,6 +134,7 @@ def download_exports(
 
     DOWNLOADS_DIR.mkdir(exist_ok=True)
     results: dict[str, Path] = {}
+    empty_tables: list[str] = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=HEADLESS)
@@ -163,6 +181,10 @@ def download_exports(
                     ):
                         el.click()
 
+                    if _table_is_empty(page, table):
+                        empty_tables.append(table)
+                        continue
+
                     path = _select_all_and_export(page, table)
                     results[table] = path
 
@@ -185,4 +207,4 @@ def download_exports(
             context.close()
             browser.close()
 
-    return results
+    return results, empty_tables

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] – 2026-07-30
+### Added
+- Empty-table handling — after applying a table's filter, `_table_is_empty()` checks the contact table's row count; a table with no rows is skipped (no select-all, export, or download attempted) and the next table's filter is still applied
+- `download_exports()` now returns `(results, empty_tables)` so callers can distinguish "no data today" from real failures
+- Normal, `--cron`, and `--force` modes all exit 0 with a clear log message when every requested table comes back empty, instead of proceeding to the county filter/Drive upload steps or (in `--force`'s case) reporting it as a failure
+
 ## [3.0.1] – 2026-07-12
 ### Fixed
 - `networkidle` waits after opening Data & Dialer and after applying a table filter timed out because the Mojo Sells site now holds persistent WebSocket connections open (ProductFruits onboarding widget, activity-stream), which prevented the network from ever going idle — replaced both waits with `page.expect_response()` matched on the `table-data` XHR that actually signals the filtered data has loaded

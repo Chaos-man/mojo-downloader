@@ -32,6 +32,27 @@ def _make_page_mock(tmp_path, suggested_filename="export.xlsx"):
 
 
 # ---------------------------------------------------------------------------
+# _table_is_empty
+# ---------------------------------------------------------------------------
+
+def test_table_is_empty_when_no_rows():
+    """Returns True and logs when the tbody has zero rows."""
+    page = MagicMock()
+    page.locator.return_value.count.return_value = 0
+
+    assert browser._table_is_empty(page, "FSBO") is True
+    page.locator.assert_called_with("tbody.Table_tbody__WYAlK tr")
+
+
+def test_table_is_empty_when_rows_present():
+    """Returns False when the tbody has rows."""
+    page = MagicMock()
+    page.locator.return_value.count.return_value = 5
+
+    assert browser._table_is_empty(page, "FSBO") is False
+
+
+# ---------------------------------------------------------------------------
 # _select_all_and_export
 # ---------------------------------------------------------------------------
 
@@ -143,3 +164,75 @@ def test_find_table_filter_raises_when_not_found():
     page.locator.return_value.all.return_value = []
     with pytest.raises(ValueError, match="not found"):
         browser._find_table_filter(page, "NonExistent")
+
+
+# ---------------------------------------------------------------------------
+# download_exports — empty-table handling
+# ---------------------------------------------------------------------------
+
+@contextmanager
+def _fake_expect_response(predicate, timeout):
+    yield MagicMock()
+
+
+def _make_playwright_mock(page):
+    """Return a fake sync_playwright() context manager wired to the given page mock."""
+    browser_mock = MagicMock()
+    context_mock = MagicMock()
+    context_mock.new_page.return_value = page
+    browser_mock.new_context.return_value = context_mock
+    p_mock = MagicMock()
+    p_mock.chromium.launch.return_value = browser_mock
+
+    @contextmanager
+    def fake_sync_playwright():
+        yield p_mock
+
+    return fake_sync_playwright
+
+
+def test_download_exports_skips_empty_table_and_continues(monkeypatch, tmp_path):
+    """An empty table is skipped (no export attempted) and the next table's filter is still applied."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.expect_response = _fake_expect_response
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+
+    fsbo_el, expired_el = MagicMock(), MagicMock()
+    monkeypatch.setattr(
+        browser, "_find_table_filter",
+        lambda page, label: fsbo_el if label == "FSBO" else expired_el,
+    )
+    monkeypatch.setattr(browser, "_table_is_empty", lambda page, label: label == "FSBO")
+    export_path = tmp_path / "expired.xlsx"
+    mock_export = MagicMock(return_value=export_path)
+    monkeypatch.setattr(browser, "_select_all_and_export", mock_export)
+
+    results, empty_tables = browser.download_exports(["FSBO", "Expired"], continue_on_error=False)
+
+    assert empty_tables == ["FSBO"]
+    assert results == {"Expired": export_path}
+    fsbo_el.click.assert_called_once()
+    expired_el.click.assert_called_once()
+    mock_export.assert_called_once_with(page, "Expired")
+
+
+def test_download_exports_all_tables_empty(monkeypatch, tmp_path):
+    """When every table is empty, results is empty and empty_tables lists them all."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.expect_response = _fake_expect_response
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+
+    monkeypatch.setattr(browser, "_find_table_filter", lambda page, label: MagicMock())
+    monkeypatch.setattr(browser, "_table_is_empty", lambda page, label: True)
+    mock_export = MagicMock()
+    monkeypatch.setattr(browser, "_select_all_and_export", mock_export)
+
+    results, empty_tables = browser.download_exports(["FSBO", "Expired"], continue_on_error=False)
+
+    assert results == {}
+    assert empty_tables == ["FSBO", "Expired"]
+    mock_export.assert_not_called()

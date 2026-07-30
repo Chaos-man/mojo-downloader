@@ -78,7 +78,7 @@ def test_force_skips_duplicate_check(monkeypatch, credentials_file):
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
             with patch("mojo_downloader.check_sheet_exists") as mock_check:
-                with patch("mojo_downloader.download_exports", return_value=FAKE_RESULTS):
+                with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])):
                     with patch("mojo_downloader.upload_to_drive", return_value={"name": "s", "webViewLink": "x"}):
                         mojo_downloader.main()
     mock_check.assert_not_called()
@@ -91,7 +91,7 @@ def test_force_passes_continue_on_error(monkeypatch, credentials_file):
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
-            with patch("mojo_downloader.download_exports", return_value=FAKE_RESULTS) as mock_dl:
+            with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])) as mock_dl:
                 with pytest.raises(SystemExit):
                     mojo_downloader.main()
     _, kwargs = mock_dl.call_args
@@ -106,7 +106,7 @@ def test_force_uploads_only_successful_tables(monkeypatch, credentials_file):
     partial = {"FSBO": Path("/tmp/fsbo.xlsx")}  # Expired failed and was skipped
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
-            with patch("mojo_downloader.download_exports", return_value=partial):
+            with patch("mojo_downloader.download_exports", return_value=(partial, [])):
                 with patch("mojo_downloader.upload_to_drive", return_value={"name": "s", "webViewLink": "x"}) as mock_upload:
                     mojo_downloader.main()
     assert mock_upload.call_count == 1
@@ -118,10 +118,25 @@ def test_force_all_tables_fail_exits_one(monkeypatch, credentials_file):
     monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
-            with patch("mojo_downloader.download_exports", return_value={}):
+            with patch("mojo_downloader.download_exports", return_value=({}, [])):
                 with pytest.raises(SystemExit) as exc:
                     mojo_downloader.main()
     assert exc.value.code == 1
+
+
+def test_force_all_tables_empty_exits_zero(monkeypatch, credentials_file):
+    """When every table is legitimately empty in --force mode, exits 0 (not treated as a failure)."""
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--force"])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    env = {**REQUIRED_ENV, "MOJO_TABLES": "FSBO,Expired"}
+    with patch.dict("os.environ", env, clear=False):
+        with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+            with patch("mojo_downloader.download_exports", return_value=({}, ["FSBO", "Expired"])):
+                with patch("mojo_downloader.upload_to_drive") as mock_upload:
+                    with pytest.raises(SystemExit) as exc:
+                        mojo_downloader.main()
+    assert exc.value.code == 0
+    mock_upload.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +167,7 @@ def test_cron_calls_retry(monkeypatch, credentials_file):
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
             with patch("mojo_downloader.check_sheet_exists", return_value=False):
-                with patch("mojo_downloader.retry", return_value=FAKE_RESULTS) as mock_retry:
+                with patch("mojo_downloader.retry", return_value=(FAKE_RESULTS, [])) as mock_retry:
                     with pytest.raises(SystemExit) as exc:
                         mojo_downloader.main()
     assert exc.value.code == 0
@@ -175,6 +190,22 @@ def test_cron_sends_email_on_all_retries_exhausted(monkeypatch, credentials_file
     mock_email.assert_called_once()
 
 
+def test_cron_all_tables_empty_exits_zero(monkeypatch, credentials_file):
+    """--cron exits 0 when retry() returns empty results because every table was empty."""
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--cron"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    with patch.dict("os.environ", REQUIRED_ENV, clear=False):
+        with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+            with patch("mojo_downloader.check_sheet_exists", return_value=False):
+                with patch("mojo_downloader.retry", return_value=({}, ["FSBO", "Expired"])):
+                    with patch("mojo_downloader.upload_to_drive") as mock_upload:
+                        with pytest.raises(SystemExit) as exc:
+                            mojo_downloader.main()
+    assert exc.value.code == 0
+    mock_upload.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # --dry-run
 # ---------------------------------------------------------------------------
@@ -186,7 +217,7 @@ def test_dry_run_skips_upload_and_exits_zero(monkeypatch, credentials_file):
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
             with patch("mojo_downloader.check_sheet_exists") as mock_check:
-                with patch("mojo_downloader.download_exports", return_value=FAKE_RESULTS):
+                with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])):
                     with patch("mojo_downloader.upload_to_drive") as mock_upload:
                         with pytest.raises(SystemExit) as exc:
                             mojo_downloader.main()
@@ -207,7 +238,7 @@ def test_show_browser_sets_headless_false(monkeypatch, credentials_file):
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
             with patch("mojo_downloader.check_sheet_exists", return_value=False):
-                with patch("mojo_downloader.download_exports", return_value=FAKE_RESULTS):
+                with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])):
                     with pytest.raises(SystemExit):
                         mojo_downloader.main()
     assert browser.HEADLESS is False
@@ -224,7 +255,23 @@ def test_default_runs_duplicate_check(monkeypatch, credentials_file):
     with patch.dict("os.environ", REQUIRED_ENV, clear=False):
         with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
             with patch("mojo_downloader.check_sheet_exists", return_value=False) as mock_check:
-                with patch("mojo_downloader.download_exports", return_value=FAKE_RESULTS):
+                with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])):
                     with patch("mojo_downloader.upload_to_drive", return_value={"name": "s", "webViewLink": "x"}):
                         mojo_downloader.main()
     assert mock_check.call_count == 2
+
+
+def test_normal_mode_all_tables_empty_exits_zero(monkeypatch, credentials_file):
+    """Normal mode exits 0 when every table is empty — no upload attempted."""
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    with patch.dict("os.environ", REQUIRED_ENV, clear=False):
+        with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+            with patch("mojo_downloader.check_sheet_exists", return_value=False):
+                with patch("mojo_downloader.download_exports", return_value=({}, ["FSBO", "Expired"])):
+                    with patch("mojo_downloader.upload_to_drive") as mock_upload:
+                        with pytest.raises(SystemExit) as exc:
+                            mojo_downloader.main()
+    assert exc.value.code == 0
+    mock_upload.assert_not_called()

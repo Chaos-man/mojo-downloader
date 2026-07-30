@@ -22,7 +22,7 @@ import argparse
 import os
 import sys
 
-__version__ = "3.0.1"
+__version__ = "3.1.0"
 
 from _mojo import browser as _browser
 from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, download_exports
@@ -211,7 +211,7 @@ def main() -> None:
     if args.cron:
         # Cron mode: retry loop (up to 3×, 30-min delay) + failure email on exhaustion.
         try:
-            results = retry(
+            results, empty_tables = retry(
                 lambda: download_exports(tables, continue_on_error=False),
                 max_attempts=3,
                 delay_seconds=1800,
@@ -220,10 +220,16 @@ def main() -> None:
             log.exception("Export failed after all retry attempts.")
             send_failure_email(exc)
             sys.exit(1)
+        if not results:
+            log.info("All tables were empty today — nothing to download or upload.")
+            sys.exit(0)
 
     elif args.force:
         # Force mode: continue past per-table errors; upload whatever succeeded.
-        results = download_exports(tables, continue_on_error=True)
+        results, empty_tables = download_exports(tables, continue_on_error=True)
+        if len(empty_tables) == len(tables):
+            log.info("All tables were empty today — nothing to download or upload.")
+            sys.exit(0)
         if not results:
             log.error("All tables failed to download.")
             sys.exit(1)
@@ -231,10 +237,13 @@ def main() -> None:
     else:
         # Normal mode: single attempt, exit 1 on any failure.
         try:
-            results = download_exports(tables, continue_on_error=False)
+            results, empty_tables = download_exports(tables, continue_on_error=False)
         except Exception as exc:
             log.error("Download failed: %s", exc)
             sys.exit(1)
+        if not results:
+            log.info("All tables were empty today — nothing to download or upload.")
+            sys.exit(0)
 
     # Apply county filter if configured.
     counties = parse_counties()
