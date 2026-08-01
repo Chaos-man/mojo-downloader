@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] – 2026-08-01
+### Changed
+- Routine dependency updates: `playwright`, `google-api-python-client`, `google-auth`, `google-auth-oauthlib`, `openpyxl`, `python-dotenv`, `pytest`, plus CI action bumps (`actions/checkout`, `softprops/action-gh-release`)
+
 ## [3.2.0] – 2026-08-01
 ### Fixed
 - Mojo shipped a new frontend build that rotated every CSS-module hash suffix, breaking the `FSBO` sidebar filter lookup (and, latently, select-all, export-confirm, and county-check) with hardcoded exact-class selectors like `SelectFieldElement_name__RO3oK`. All hardcoded hashed-class selectors in `browser.py` were replaced with prefix-based attribute selectors (e.g. `[class*="SelectFieldElement_name__"]`) so future Mojo rebuilds don't break them again
