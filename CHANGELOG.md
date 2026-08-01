@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] – 2026-08-01
+### Fixed
+- Mojo shipped a new frontend build that rotated every CSS-module hash suffix, breaking the `FSBO` sidebar filter lookup (and, latently, select-all, export-confirm, and county-check) with hardcoded exact-class selectors like `SelectFieldElement_name__RO3oK`. All hardcoded hashed-class selectors in `browser.py` were replaced with prefix-based attribute selectors (e.g. `[class*="SelectFieldElement_name__"]`) so future Mojo rebuilds don't break them again
+
 ## [3.1.1] – 2026-07-30
 ### Fixed
 - Failed login was not detected — Mojo re-renders the login form in place on invalid credentials (no navigation), so the code assumed success and proceeded to the next step, which failed 30 seconds later with a confusing, unrelated `#menu-button-my-data` timeout. `download_exports()` now checks for the `Form_NonFieldErrors__el6fn` error div after submitting login and raises a clear `RuntimeError` with Mojo's actual error message (e.g. "Invalid login/password")

@@ -34,8 +34,8 @@ def _ensure_county_checked(page: Page, label: str) -> None:
     """
     try:
         # The field is a DataColumns_field div whose text content is "County".
-        county_field = page.locator('div.DataColumns_field__RqWZR').filter(has_text="County")
-        county_btn = county_field.locator('button.Checkbox_Checkbox__FWKJN')
+        county_field = page.locator('div[class*="DataColumns_field__"]').filter(has_text="County")
+        county_btn = county_field.locator('button[class*="Checkbox_Checkbox__"]')
         img_src = county_btn.locator('img').get_attribute('src', timeout=3000)
         if img_src and 'off' in img_src:
             county_btn.click()
@@ -54,7 +54,7 @@ def _table_is_empty(page: Page, label: str) -> bool:
     with zero <tr> children when the applied filter matches no records.
     """
     page.wait_for_timeout(500)
-    count = page.locator("tbody.Table_tbody__WYAlK tr").count()
+    count = page.locator('tbody[class*="Table_tbody__"] tr').count()
     if count == 0:
         log.info("%s: table is empty after filter — skipping export.", label)
         return True
@@ -68,13 +68,13 @@ def _select_all_and_export(page: Page, label: str) -> Path:
     # Try clicking "Select All" directly; fall back to opening the dropdown first.
     try:
         page.click(
-            'button.Checkbox_Checkbox__FWKJN:has-text("Select All")',
+            'button[class*="Checkbox_Checkbox__"]:has-text("Select All")',
             timeout=3000,
         )
     except PlaywrightTimeoutError:
-        page.click('.ContactTable_selectAllCheckboxContainer__FzQur')
+        page.click('[class*="ContactTable_selectAllCheckboxContainer__"]')
         page.wait_for_timeout(500)
-        page.click('button.Checkbox_Checkbox__FWKJN:has-text("Select All")')
+        page.click('button[class*="Checkbox_Checkbox__"]:has-text("Select All")')
 
     page.wait_for_timeout(500)
 
@@ -89,7 +89,7 @@ def _select_all_and_export(page: Page, label: str) -> Path:
     # Second click triggers the actual download. Server may take up to 5 minutes.
     log.info("Confirming %s export — server may take up to 5 minutes to prepare the file...", label)
     with page.expect_download(timeout=DOWNLOAD_TIMEOUT_MS) as download_info:
-        page.click('button.GenericModal_confirmButton__BAaWj:has-text("Export")')
+        page.click('button[class*="GenericModal_confirmButton__"]:has-text("Export")')
 
     download = download_info.value
     filename = download.suggested_filename or f"mojo_{label.lower()}_{date.today().isoformat()}.xlsx"
@@ -108,7 +108,7 @@ def _find_table_filter(page: Page, label: str):
     Raises ValueError if no matching element is found on the page.
     """
     target = label.strip().lower()
-    for el in page.locator("div.SelectFieldElement_name__RO3oK").all():
+    for el in page.locator('div[class*="SelectFieldElement_name__"]').all():
         text = el.text_content()
         if text and text.strip().lower() == target:
             return el
@@ -155,7 +155,7 @@ def download_exports(
 
             # Mojo re-renders the login form in place on failure (no navigation),
             # showing this error div — check for it before assuming success.
-            error_el = page.locator('.Form_NonFieldErrors__el6fn')
+            error_el = page.locator('[class*="Form_NonFieldErrors__"]')
             if error_el.count() > 0 and error_el.first.is_visible():
                 error_text = error_el.first.text_content().strip()
                 raise RuntimeError(f"Mojo login failed: {error_text}")
@@ -168,8 +168,8 @@ def download_exports(
             # Using the Data & Dialer nav button + left-sidebar filter instead.
             #
             # Dashboard widget selectors (for reference only, do not use for export):
-            #   FSBO Leads:    button.ProductWidget_widgetElement__RqNtF:has-text("FSBO Leads")
-            #   Expired Leads: button.ProductWidget_widgetElement__RqNtF:has-text("Expired Leads")
+            #   FSBO Leads:    button[class*="ProductWidget_widgetElement__"]:has-text("FSBO Leads")
+            #   Expired Leads: button[class*="ProductWidget_widgetElement__"]:has-text("Expired Leads")
             log.info("Navigating to Data & Dialer contacts...")
             with page.expect_response(
                 lambda r: "table-data" in r.url and r.status == 200, timeout=15000

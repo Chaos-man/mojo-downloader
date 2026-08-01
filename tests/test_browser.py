@@ -41,7 +41,7 @@ def test_table_is_empty_when_no_rows():
     page.locator.return_value.count.return_value = 0
 
     assert browser._table_is_empty(page, "FSBO") is True
-    page.locator.assert_called_with("tbody.Table_tbody__WYAlK tr")
+    page.locator.assert_called_with('tbody[class*="Table_tbody__"] tr')
 
 
 def test_table_is_empty_when_rows_present():
@@ -65,13 +65,13 @@ def test_select_all_direct_click_success(tmp_path, monkeypatch):
 
     # Verify Select All was attempted directly
     page.click.assert_any_call(
-        'button.Checkbox_Checkbox__FWKJN:has-text("Select All")',
+        'button[class*="Checkbox_Checkbox__"]:has-text("Select All")',
         timeout=3000,
     )
     # Verify both export clicks happened
     page.click.assert_any_call('a[role="button"]:has-text("Export")')
     page.click.assert_any_call(
-        'button.GenericModal_confirmButton__BAaWj:has-text("Export")'
+        'button[class*="GenericModal_confirmButton__"]:has-text("Export")'
     )
 
 
@@ -82,7 +82,7 @@ def test_select_all_falls_back_to_dropdown(tmp_path, monkeypatch):
 
     # Make the first Select All click raise a timeout
     def click_side_effect(selector, **kwargs):
-        if selector == 'button.Checkbox_Checkbox__FWKJN:has-text("Select All")' \
+        if selector == 'button[class*="Checkbox_Checkbox__"]:has-text("Select All")' \
                 and kwargs.get("timeout") == 3000:
             raise PlaywrightTimeoutError("timed out")
 
@@ -91,7 +91,7 @@ def test_select_all_falls_back_to_dropdown(tmp_path, monkeypatch):
     browser._select_all_and_export(page, "FSBO")
 
     clicks = [c.args[0] for c in page.click.call_args_list]
-    assert ".ContactTable_selectAllCheckboxContainer__FzQur" in clicks
+    assert '[class*="ContactTable_selectAllCheckboxContainer__"]' in clicks
 
 
 def test_select_all_saves_file_to_downloads_dir(tmp_path, monkeypatch):
@@ -220,7 +220,7 @@ def test_download_exports_skips_empty_table_and_continues(monkeypatch, tmp_path)
 
 
 def test_download_exports_raises_clear_error_on_invalid_login(monkeypatch, tmp_path):
-    """A visible '.Form_NonFieldErrors__el6fn' after submit raises a clear login error
+    """A visible '[class*="Form_NonFieldErrors__"]' after submit raises a clear login error
     instead of proceeding to navigation and failing later with an unrelated timeout."""
     monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
 
