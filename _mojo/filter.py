@@ -38,22 +38,25 @@ def filter_by_county(path: Path, counties: set[str], label: str) -> bool:
         return False
 
     counties_lower = {c.strip().lower() for c in counties}
-    rows_to_delete = []
-    total = ws.max_row - 1  # exclude header
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    kept_rows = [
+        row for row in rows
+        if row[county_col] is not None
+        and str(row[county_col]).strip().lower() in counties_lower
+    ]
 
-    for row in ws.iter_rows(min_row=2):
-        val = row[county_col].value
-        if val is None or val.strip().lower() not in counties_lower:
-            rows_to_delete.append(row[0].row)
+    # Clear all data rows in one call and re-append the kept ones.
+    # Deleting rows individually is O(n²) in openpyxl and stalls on large exports.
+    if rows:
+        ws.delete_rows(2, len(rows))
+    for row in kept_rows:
+        ws.append(row)
 
-    # Delete in reverse order so row numbers stay valid.
-    for row_num in reversed(rows_to_delete):
-        ws.delete_rows(row_num)
-
-    kept = total - len(rows_to_delete)
+    total = len(rows)
+    kept = len(kept_rows)
     log.info(
         "%s: kept %d/%d rows (%d removed by county filter)",
-        label, kept, total, len(rows_to_delete),
+        label, kept, total, total - kept,
     )
     wb.save(path)
     return True

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] – 2026-09-29
+### Fixed
+- County filter appeared to hang on large exports — `filter_by_county()` deleted non-matching rows one at a time with `ws.delete_rows()`, which is O(n²) in openpyxl (a 4,085-row Expired export never finished). It now clears all data rows in a single call and re-appends the kept rows; the same Expired export now filters in about 4 seconds
+- `filter_by_county()` crashed with `AttributeError` when a County cell held a non-string value (e.g. a number); values are now converted with `str()` before comparing
+
 ## [3.2.1] – 2026-08-01
 ### Changed
 - Routine dependency updates: `playwright`, `google-api-python-client`, `google-auth`, `google-auth-oauthlib`, `openpyxl`, `python-dotenv`, `pytest`, plus CI action bumps (`actions/checkout`, `softprops/action-gh-release`)

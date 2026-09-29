@@ -72,3 +72,41 @@ def test_filter_missing_column_warns(tmp_path, caplog):
     # File should be unchanged — still has the original non-matching header
     wb2 = openpyxl.load_workbook(path)
     assert wb2.active.max_row == 2
+
+
+def test_filter_large_file_is_fast(tmp_path):
+    import time
+    rows = [
+        ["src", "Chester" if i % 10 == 0 else "Other County", f"555-{i:04d}"]
+        for i in range(5000)
+    ]
+    path = _make_xlsx(tmp_path, rows)
+    start = time.perf_counter()
+    assert filter_by_county(path, {"Chester"}, "FSBO") is True
+    elapsed = time.perf_counter() - start
+    assert _read_counties(path) == ["Chester"] * 500
+    assert elapsed < 5, f"filter took {elapsed:.1f}s"
+
+
+def test_filter_preserves_other_columns(tmp_path):
+    path = _make_xlsx(tmp_path, [
+        ["a", "Chester", "555-0001"],
+        ["b", "Other", "555-0002"],
+        ["c", "Chester", "555-0003"],
+    ])
+    filter_by_county(path, {"Chester"}, "FSBO")
+    ws = openpyxl.load_workbook(path).active
+    assert [list(r) for r in ws.iter_rows(values_only=True)] == [
+        ["Source", COUNTY_COLUMN, "Phone 1"],
+        ["a", "Chester", "555-0001"],
+        ["c", "Chester", "555-0003"],
+    ]
+
+
+def test_filter_non_string_county(tmp_path):
+    path = _make_xlsx(tmp_path, [
+        ["src", 12345, "555-0001"],
+        ["src", "Chester", "555-0002"],
+    ])
+    assert filter_by_county(path, {"Chester"}, "FSBO") is True
+    assert _read_counties(path) == ["Chester"]
