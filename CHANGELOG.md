@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] – 2026-10-21
+### Fixed
+- Failed login was again not detected — the `Form_NonFieldErrors__` check introduced in 3.1.1 ran before Mojo rendered the error, so an invalid password logged "Logged in." and then hung on the `#menu-button-my-data` click. `download_exports()` now waits up to 15 seconds (`LOGIN_TIMEOUT_MS`) for the URL to leave `/login` and raises `MojoLoginError` if it doesn't, including Mojo's on-page error text when present. Login failures are logged as a single line without a traceback
+- CLI tests no longer depend on a local `.env` — they previously exited 1 in a clean checkout
+### Changed
+- `--cron` no longer retries on a login failure — `retry()` accepts a `no_retry` tuple, and `MojoLoginError` is passed so bad credentials send the failure email immediately instead of retrying 3× over an hour
+- `main` is now protected (PRs only, squash merge, `pytest` must pass); the release workflow in `CLAUDE.md` was updated accordingly
+- Routine dependency updates: `playwright` (≥1.64.0), `google-api-python-client` (≥2.201.0), `google-auth` (≥2.62.0), `google-auth-oauthlib` (≥1.5.0), `python-dotenv` (≥1.2.4)
+### Added
+- `tests.yml` GitHub Actions workflow runs `pytest` on every PR and push to `main`
+### Removed
+- `claude-code-review.yml` automatic PR review workflow (the `@claude` mention workflow is kept)
+
 ## [3.3.0] – 2026-09-29
 ### Fixed
 - County filter appeared to hang on large exports — `filter_by_county()` deleted non-matching rows one at a time with `ws.delete_rows()`, which is O(n²) in openpyxl (a 4,085-row Expired export never finished). It now clears all data rows in a single call and re-appends the kept rows; the same Expired export now filters in about 4 seconds
