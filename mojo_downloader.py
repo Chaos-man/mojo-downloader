@@ -25,7 +25,7 @@ import sys
 __version__ = "3.3.0"
 
 from _mojo import browser as _browser
-from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, download_exports
+from _mojo.browser import MOJO_URL, MOJO_USERNAME, MOJO_PASSWORD, MojoLoginError, download_exports
 from _mojo.filter import filter_by_county
 from _mojo.drive import (
     CREDENTIALS_FILE,
@@ -210,11 +210,13 @@ def main() -> None:
 
     if args.cron:
         # Cron mode: retry loop (up to 3×, 30-min delay) + failure email on exhaustion.
+        # Bad credentials are not retried — they fail and email immediately.
         try:
             results, empty_tables = retry(
                 lambda: download_exports(tables, continue_on_error=False),
                 max_attempts=3,
                 delay_seconds=1800,
+                no_retry=(MojoLoginError,),
             )
         except Exception as exc:
             log.exception("Export failed after all retry attempts.")

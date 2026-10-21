@@ -23,7 +23,14 @@ DOWNLOADS_DIR = PROJECT_ROOT / "downloads"
 # The export can take up to 5 minutes; give it 6 to be safe.
 DOWNLOAD_TIMEOUT_MS = 360_000
 
+# How long to wait for the URL to leave /login after submitting credentials.
+LOGIN_TIMEOUT_MS = 15_000
+
 HEADLESS = True
+
+
+class MojoLoginError(RuntimeError):
+    """Raised when Mojo rejects the credentials (page never leaves /login)."""
 
 
 def _ensure_county_checked(page: Page, label: str) -> None:
@@ -151,14 +158,19 @@ def download_exports(
             page.fill('input[name="email"]', MOJO_USERNAME)
             page.fill('input[name="password"]', MOJO_PASSWORD)
             page.click('button[type="submit"]')
-            page.wait_for_load_state("networkidle")
 
             # Mojo re-renders the login form in place on failure (no navigation),
-            # showing this error div — check for it before assuming success.
-            error_el = page.locator('[class*="Form_NonFieldErrors__"]')
-            if error_el.count() > 0 and error_el.first.is_visible():
-                error_text = error_el.first.text_content().strip()
-                raise RuntimeError(f"Mojo login failed: {error_text}")
+            # so a URL that never leaves /login means the credentials were rejected.
+            try:
+                page.wait_for_url(lambda url: "/login" not in url, timeout=LOGIN_TIMEOUT_MS)
+            except PlaywrightTimeoutError:
+                # The error div is only used for the message, not to decide success.
+                error_el = page.locator('[class*="Form_NonFieldErrors__"]')
+                if error_el.count() > 0 and error_el.first.is_visible():
+                    reason = error_el.first.text_content().strip()
+                else:
+                    reason = "still on login page after submit"
+                raise MojoLoginError(f"Mojo login failed: {reason}") from None
             log.info("Logged in.")
 
             # ------------------------------------------------------------------
@@ -207,6 +219,10 @@ def download_exports(
                     else:
                         raise
 
+        except MojoLoginError as exc:
+            # Expected failure (bad credentials) — a traceback adds nothing.
+            log.error("%s", exc)
+            raise
         except Exception as exc:
             log.exception("Browser automation error: %s", exc)
             raise

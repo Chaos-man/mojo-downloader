@@ -55,3 +55,36 @@ def test_retry_single_attempt_raises_immediately():
         with pytest.raises(RuntimeError, match="boom"):
             notify.retry(lambda: (_ for _ in ()).throw(RuntimeError("boom")), max_attempts=1, delay_seconds=60)
     mock_sleep.assert_not_called()
+
+
+def test_retry_no_retry_exception_raises_immediately():
+    """An exception listed in no_retry is raised on the first attempt without sleeping."""
+    calls = []
+
+    def fn():
+        calls.append(1)
+        raise KeyError("fatal")
+
+    with patch("_mojo.notify.time.sleep") as mock_sleep:
+        with pytest.raises(KeyError, match="fatal"):
+            notify.retry(fn, max_attempts=3, delay_seconds=1800, no_retry=(KeyError,))
+
+    assert len(calls) == 1
+    mock_sleep.assert_not_called()
+
+
+def test_retry_other_exceptions_still_retried_when_no_retry_set():
+    """Exceptions not in no_retry follow the normal retry path."""
+    outcomes = [ValueError("transient"), "ok"]
+
+    def fn():
+        result = outcomes.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    with patch("_mojo.notify.time.sleep") as mock_sleep:
+        result = notify.retry(fn, max_attempts=3, delay_seconds=1800, no_retry=(KeyError,))
+
+    assert result == "ok"
+    mock_sleep.assert_called_once_with(1800)
