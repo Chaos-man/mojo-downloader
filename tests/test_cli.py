@@ -21,6 +21,14 @@ REQUIRED_ENV = {
     "MOJO_TABLES": "FSBO,Expired",  # pin to the 2-table default; real .env may configure more
 }
 
+@pytest.fixture(autouse=True)
+def _required_module_constants(monkeypatch):
+    """validate_env() reads module constants captured from .env at import time;
+    patch them so these tests pass without a local .env (e.g. in CI)."""
+    for name in ("MOJO_URL", "MOJO_USERNAME", "MOJO_PASSWORD", "GOOGLE_DRIVE_FOLDER_ID"):
+        monkeypatch.setattr(f"mojo_downloader.{name}", REQUIRED_ENV[name])
+
+
 FAKE_RESULTS = {
     "FSBO": Path("/tmp/fsbo.xlsx"),
     "Expired": Path("/tmp/expired.xlsx"),
