@@ -10,12 +10,17 @@ from email.mime.text import MIMEText
 log = logging.getLogger("mojo_downloader")
 
 
-def retry(fn, max_attempts: int = 3, delay_seconds: int = 1800):
-    """Call fn() up to max_attempts times, waiting delay_seconds between tries."""
+def retry(fn, max_attempts: int = 3, delay_seconds: int = 1800, no_retry: tuple = ()):
+    """Call fn() up to max_attempts times, waiting delay_seconds between tries.
+
+    Exceptions in no_retry are raised immediately — retrying cannot fix them.
+    """
     last_exc: Exception = None
     for attempt in range(1, max_attempts + 1):
         try:
             return fn()
+        except no_retry:
+            raise
         except Exception as exc:
             last_exc = exc
             if attempt < max_attempts:

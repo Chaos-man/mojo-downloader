@@ -220,24 +220,70 @@ def test_download_exports_skips_empty_table_and_continues(monkeypatch, tmp_path)
 
 
 def test_download_exports_raises_clear_error_on_invalid_login(monkeypatch, tmp_path):
-    """A visible '[class*="Form_NonFieldErrors__"]' after submit raises a clear login error
-    instead of proceeding to navigation and failing later with an unrelated timeout."""
+    """Staying on /login/ with a visible '[class*="Form_NonFieldErrors__"]' raises
+    MojoLoginError carrying the on-page error text."""
     monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
 
     page = MagicMock()
     page.expect_response = _fake_expect_response
+    page.wait_for_url.side_effect = PlaywrightTimeoutError("still on login page")
     error_el = page.locator.return_value
     error_el.count.return_value = 1
     error_el.first.is_visible.return_value = True
     error_el.first.text_content.return_value = "Invalid login/password"
     monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
 
-    with pytest.raises(RuntimeError, match="Invalid login/password"):
+    with pytest.raises(browser.MojoLoginError, match="Invalid login/password"):
         browser.download_exports(["FSBO", "Expired"], continue_on_error=False)
 
     page.click.assert_any_call('button[type="submit"]')
     # Must not have proceeded to click the Data & Dialer nav button.
     assert call('#menu-button-my-data') not in page.click.call_args_list
+
+
+def test_download_exports_raises_login_error_when_url_unchanged_without_error_div(monkeypatch, tmp_path):
+    """Staying on /login/ raises MojoLoginError even when no error div is rendered
+    (regression: the old check logged 'Logged in.' and then hung on the nav button)."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.expect_response = _fake_expect_response
+    page.wait_for_url.side_effect = PlaywrightTimeoutError("still on login page")
+    page.locator.return_value.count.return_value = 0
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+
+    with pytest.raises(browser.MojoLoginError, match="still on login page"):
+        browser.download_exports(["FSBO", "Expired"], continue_on_error=False)
+
+    assert call('#menu-button-my-data') not in page.click.call_args_list
+
+
+def test_download_exports_waits_for_url_to_leave_login_page(monkeypatch, tmp_path):
+    """On success, waits (with LOGIN_TIMEOUT_MS) for the URL to leave /login, then navigates."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.expect_response = _fake_expect_response
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+    monkeypatch.setattr(browser, "_find_table_filter", lambda page, label: MagicMock())
+    monkeypatch.setattr(browser, "_table_is_empty", lambda page, label: True)
+
+    browser.download_exports(["FSBO"], continue_on_error=False)
+
+    page.wait_for_url.assert_called_once()
+    predicate = page.wait_for_url.call_args.args[0]
+    assert page.wait_for_url.call_args.kwargs["timeout"] == browser.LOGIN_TIMEOUT_MS
+    assert predicate("https://lb11.mojosells.com/login/") is False
+    assert predicate("https://lb11.mojosells.com/dashboard/") is True
+    page.click.assert_any_call('#menu-button-my-data')
+
+
+def test_login_timeout_is_15_seconds():
+    assert browser.LOGIN_TIMEOUT_MS == 15_000
+
+
+def test_mojo_login_error_is_runtime_error():
+    assert issubclass(browser.MojoLoginError, RuntimeError)
 
 
 def test_download_exports_all_tables_empty(monkeypatch, tmp_path):
@@ -259,3 +305,37 @@ def test_download_exports_all_tables_empty(monkeypatch, tmp_path):
     assert results == {}
     assert empty_tables == ["FSBO", "Expired"]
     mock_export.assert_not_called()
+
+
+def test_login_error_logged_without_traceback(monkeypatch, tmp_path, caplog):
+    """A MojoLoginError is logged as a single ERROR line with no traceback attached."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.wait_for_url.side_effect = PlaywrightTimeoutError("still on login page")
+    page.locator.return_value.count.return_value = 0
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+
+    with caplog.at_level("ERROR", logger="mojo_downloader"):
+        with pytest.raises(browser.MojoLoginError):
+            browser.download_exports(["FSBO"], continue_on_error=False)
+
+    login_records = [r for r in caplog.records if "Mojo login failed" in r.getMessage()]
+    assert len(login_records) == 1
+    assert login_records[0].exc_info is None
+
+
+def test_unexpected_error_still_logged_with_traceback(monkeypatch, tmp_path, caplog):
+    """Non-login errors keep the full traceback in the log."""
+    monkeypatch.setattr(browser, "DOWNLOADS_DIR", tmp_path)
+
+    page = MagicMock()
+    page.goto.side_effect = RuntimeError("network down")
+    monkeypatch.setattr(browser, "sync_playwright", _make_playwright_mock(page))
+
+    with caplog.at_level("ERROR", logger="mojo_downloader"):
+        with pytest.raises(RuntimeError, match="network down"):
+            browser.download_exports(["FSBO"], continue_on_error=False)
+
+    records = [r for r in caplog.records if "network down" in r.getMessage()]
+    assert records and records[0].exc_info is not None

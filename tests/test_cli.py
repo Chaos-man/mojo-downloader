@@ -21,6 +21,14 @@ REQUIRED_ENV = {
     "MOJO_TABLES": "FSBO,Expired",  # pin to the 2-table default; real .env may configure more
 }
 
+@pytest.fixture(autouse=True)
+def _required_module_constants(monkeypatch):
+    """validate_env() reads module constants captured from .env at import time;
+    patch them so these tests pass without a local .env (e.g. in CI)."""
+    for name in ("MOJO_URL", "MOJO_USERNAME", "MOJO_PASSWORD", "GOOGLE_DRIVE_FOLDER_ID"):
+        monkeypatch.setattr(f"mojo_downloader.{name}", REQUIRED_ENV[name])
+
+
 FAKE_RESULTS = {
     "FSBO": Path("/tmp/fsbo.xlsx"),
     "Expired": Path("/tmp/expired.xlsx"),
@@ -276,3 +284,23 @@ def test_normal_mode_all_tables_empty_exits_zero(monkeypatch, credentials_file):
                             mojo_downloader.main()
     assert exc.value.code == 0
     mock_upload.assert_not_called()
+
+
+def test_cron_login_failure_not_retried_and_emails_once(monkeypatch, credentials_file):
+    """--cron: a MojoLoginError stops after one download attempt (no 30-min sleeps) and emails once."""
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--cron"])
+    monkeypatch.setattr("mojo_downloader.MOJO_URL", REQUIRED_ENV["MOJO_URL"])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    login_error = browser.MojoLoginError("Mojo login failed: Invalid login/password")
+    with patch.dict("os.environ", REQUIRED_ENV, clear=False):
+        with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+            with patch("mojo_downloader.check_sheet_exists", return_value=False):
+                with patch("mojo_downloader.download_exports", side_effect=login_error) as mock_download:
+                    with patch("_mojo.notify.time.sleep") as mock_sleep:
+                        with patch("mojo_downloader.send_failure_email") as mock_email:
+                            with pytest.raises(SystemExit) as exc:
+                                mojo_downloader.main()
+    assert exc.value.code == 1
+    mock_download.assert_called_once()
+    mock_sleep.assert_not_called()
+    mock_email.assert_called_once_with(login_error)
