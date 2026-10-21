@@ -70,9 +70,9 @@ Tests live in [tests/](tests/) and use `pytest` with mocks (no real network call
 | `test_validation.py` | `validate_env()` exit conditions |
 | `test_drive.py` | Drive API query params, MIME type, sheet name format |
 | `test_logging.py` | Handler count, rotation interval, backup count |
-| `test_browser.py` | `_select_all_and_export` direct click and dropdown fallback |
+| `test_browser.py` | `_select_all_and_export` direct click and dropdown fallback; login failure detection (`MojoLoginError`) |
 | `test_filter.py` | `filter_by_county()` — matching, case-insensitivity, empty set no-op, missing column warning |
-| `test_retry.py` | `retry()` — success, partial failure, exhaustion |
+| `test_retry.py` | `retry()` — success, partial failure, exhaustion, `no_retry` exceptions |
 | `test_notification.py` | `send_failure_email()` — SMTP call, missing config, `--test-notification` flag |
 | `test_cli.py` | All six CLI flags |
 
@@ -86,17 +86,21 @@ Shared fixtures (mocked Drive service, temp `credentials.json`) are in [tests/co
 - `_mojo.browser.MOJO_URL` — login URL (from `MOJO_URL` env var, required)
 - `_mojo.drive.SHEET_NAME_FSBO` / `_mojo.drive.SHEET_NAME_EXPIRED` — today's sheet names (set at import time)
 - `_mojo.browser.DOWNLOAD_TIMEOUT_MS` — 360,000 ms
+- `_mojo.browser.LOGIN_TIMEOUT_MS` — 15,000 ms; if the URL is still on `/login` after this, `MojoLoginError` is raised and `--cron` skips retries
 - `_mojo.browser.HEADLESS` — set to `False` via `--show-browser` flag for local debugging
 - `_mojo.filter.COUNTY_COLUMN` — expected header name for the county column in exported XLSX (default: `"County"`); update if Mojo changes the column name
 
 ## Release Workflow
 
-1. Update `__version__` in [mojo_downloader.py](mojo_downloader.py)
-2. Update [CHANGELOG.md](CHANGELOG.md)
-3. `git commit -m "Bump version to X.Y.Z"`
-4. `git tag vX.Y.Z`
-5. `git push && git push --tags`
-6. GitHub Actions (`.github/workflows/release.yml`) creates the GitHub Release automatically
+`main` is protected by the `protect-main` ruleset: no direct pushes, every change goes through a squash-merged PR.
+
+1. On a branch, update `__version__` in [mojo_downloader.py](mojo_downloader.py) and [CHANGELOG.md](CHANGELOG.md)
+2. `git commit -m "Bump version to X.Y.Z"`, push, open a PR, and squash-merge it
+3. `git checkout main && git pull`
+4. `git tag vX.Y.Z && git push --tags`
+5. GitHub Actions (`.github/workflows/release.yml`) creates the GitHub Release automatically
+
+PRs run `pytest` via [.github/workflows/tests.yml](.github/workflows/tests.yml).
 
 ## graphify
 
