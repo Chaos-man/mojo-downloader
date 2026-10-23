@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.0] – 2026-10-23
+### Fixed
+- `mojo_downloader.log` never rotated on the server — `TimedRotatingFileHandler` schedules rollover from the file's mtime, so a short-lived process that runs daily kept pushing the next rollover a full interval ahead (the server log held records back to March). The file handler now schedules rollover from the timestamp of the file's first record, falling back to the stock behaviour if the file is empty or unparseable
+- `logs/cron.log` grew without bound (~1 MB) — the console handler mirrored the entire file log into it and the cron entry appended forever
+### Changed
+- `--cron` runs log to `mojo_downloader.log` only; `setup_logging()` takes a `console` flag and `main()` passes `console=not args.cron`
+- `setup.sh` registers the cron entry with `>` instead of `>>`, so `cron.log` holds only the latest run's output (crashes before logging starts)
+
 ## [3.4.0] – 2026-10-21
 ### Fixed
 - Failed login was again not detected — the `Form_NonFieldErrors__` check introduced in 3.1.1 ran before Mojo rendered the error, so an invalid password logged "Logged in." and then hung on the `#menu-button-my-data` click. `download_exports()` now waits up to 15 seconds (`LOGIN_TIMEOUT_MS`) for the URL to leave `/login` and raises `MojoLoginError` if it doesn't, including Mojo's on-page error text when present. Login failures are logged as a single line without a traceback
