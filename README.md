@@ -239,7 +239,7 @@ Set environment variables in n8n's own env config rather than relying on `.env`.
 |---|---|
 | `logs/mojo_downloader.log` | Active log file |
 | `logs/mojo_downloader.log.YYYY-MM-DD` | Rotated weekly archives |
-| `logs/cron.log` | Captures output from the cron process itself |
+| `logs/cron.log` | Output from the latest cron run only (overwritten each run); catches crashes before logging starts |
 
 Log files rotate every **7 days** and are kept for **~2 months** (8 rotated files). Older files are deleted automatically.
 

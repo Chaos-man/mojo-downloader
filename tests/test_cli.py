@@ -304,3 +304,21 @@ def test_cron_login_failure_not_retried_and_emails_once(monkeypatch, credentials
     mock_download.assert_called_once()
     mock_sleep.assert_not_called()
     mock_email.assert_called_once_with(login_error)
+
+
+@pytest.mark.parametrize("argv, console", [
+    (["--cron", "--dry-run"], False),
+    (["--dry-run"], True),
+])
+def test_console_logging_disabled_only_in_cron_mode(monkeypatch, credentials_file, argv, console):
+    """--cron logs to the file only; other modes still mirror to the console."""
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py", *argv])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    with patch.dict("os.environ", REQUIRED_ENV, clear=False):
+        with patch("mojo_downloader.setup_logging") as mock_setup:
+            with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+                with patch("mojo_downloader.retry", return_value=(FAKE_RESULTS, [])):
+                    with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])):
+                        with pytest.raises(SystemExit):
+                            mojo_downloader.main()
+    mock_setup.assert_called_once_with(console=console)
