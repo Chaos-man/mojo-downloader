@@ -158,3 +158,15 @@ def test_log_with_empty_or_unparseable_file_does_not_crash(monkeypatch, tmp_path
         finally:
             _close_handlers("mojo_downloader")
         assert list(logs_dir.glob("mojo_downloader.log.*")) == []
+
+
+def test_setup_logging_without_console_adds_only_file_handler(monkeypatch, tmp_path):
+    """console=False (used by --cron) skips the console handler so cron.log
+    doesn't duplicate the whole file log."""
+    monkeypatch.setattr(log_module, "LOGS_DIR", tmp_path / "logs")
+    try:
+        logger = log_module.setup_logging(console=False)
+        assert len(logger.handlers) == 1
+        assert isinstance(logger.handlers[0], TimedRotatingFileHandler)
+    finally:
+        _close_handlers("mojo_downloader")

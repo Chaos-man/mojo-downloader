@@ -149,7 +149,7 @@ def parse_args():
 def main() -> None:
     args = parse_args()
 
-    setup_logging()
+    setup_logging(console=not args.cron)
     log.info("=" * 60)
     log.info("Mojo Downloader started")
     log.info("=" * 60)

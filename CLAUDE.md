@@ -50,7 +50,7 @@ The application is split into five focused modules:
 | [_mojo/notify.py](_mojo/notify.py) | Retry logic and SMTP failure email |
 
 **Execution flow in `main()`:**
-1. `setup_logging()` — rotating file log (7-day, 8 backups) + console
+1. `setup_logging()` — rotating file log (7-day, 8 backups; rollover scheduled from the file's first record, since the stock mtime-based schedule never fires for a daily short-lived run) + console (omitted under `--cron`)
 2. `validate_env()` — fails fast (sys.exit 1) if `.env` vars or `credentials.json` are missing
 3. `get_drive_service()` — OAuth2 flow; reads/writes `token.json`
 4. `check_sheet_exists()` — aborts if today's sheets already exist on Drive (skipped by `--force` or `--dry-run`)
@@ -69,7 +69,7 @@ Tests live in [tests/](tests/) and use `pytest` with mocks (no real network call
 |---|---|
 | `test_validation.py` | `validate_env()` exit conditions |
 | `test_drive.py` | Drive API query params, MIME type, sheet name format |
-| `test_logging.py` | Handler count, rotation interval, backup count |
+| `test_logging.py` | Handler count, rotation interval, backup count, first-record rollover, `console=False` |
 | `test_browser.py` | `_select_all_and_export` direct click and dropdown fallback; login failure detection (`MojoLoginError`) |
 | `test_filter.py` | `filter_by_county()` — matching, case-insensitivity, empty set no-op, missing column warning |
 | `test_retry.py` | `retry()` — success, partial failure, exhaustion, `no_retry` exceptions |

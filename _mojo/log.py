@@ -39,7 +39,7 @@ class _FirstRecordRotatingHandler(TimedRotatingFileHandler):
             self.rolloverAt = self.computeRollover(first)
 
 
-def setup_logging() -> logging.Logger:
+def setup_logging(console: bool = True) -> logging.Logger:
     LOGS_DIR.mkdir(exist_ok=True)
 
     logger = logging.getLogger("mojo_downloader")
@@ -61,11 +61,14 @@ def setup_logging() -> logging.Logger:
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(fmt)
 
-    # Console handler — mirrors output to the terminal.
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(fmt)
-
     logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+
+    # Console handler — mirrors output to the terminal. Skipped under cron, where
+    # stdout is redirected to cron.log and would just duplicate the file log.
+    if console:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(fmt)
+        logger.addHandler(console_handler)
+
     return logger
