@@ -76,6 +76,17 @@ def test_check_drive_calls_check_sheet_exists_for_both_sheets(monkeypatch, crede
     assert mock_check.call_count == 2
 
 
+def test_check_drive_passes_folder_id(monkeypatch, credentials_file):
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py", "--check-drive"])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    with patch.dict("os.environ", REQUIRED_ENV, clear=False):
+        with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+            with patch("mojo_downloader.check_sheet_exists", return_value=False) as mock_check:
+                with pytest.raises(SystemExit):
+                    mojo_downloader.main()
+    assert all(c.args[2] == "folder123" for c in mock_check.call_args_list)
+
+
 # ---------------------------------------------------------------------------
 # --force
 # ---------------------------------------------------------------------------
@@ -268,6 +279,21 @@ def test_default_runs_duplicate_check(monkeypatch, credentials_file):
                     with patch("mojo_downloader.upload_to_drive", return_value={"name": "s", "webViewLink": "x"}):
                         mojo_downloader.main()
     assert mock_check.call_count == 2
+
+
+def test_default_passes_folder_id_to_check_and_upload(monkeypatch, credentials_file):
+    monkeypatch.setattr("sys.argv", ["mojo_downloader.py"])
+    monkeypatch.setattr("mojo_downloader.CREDENTIALS_FILE", credentials_file)
+    with patch.dict("os.environ", REQUIRED_ENV, clear=False):
+        with patch("mojo_downloader.get_drive_service", return_value=_mock_drive_service()):
+            with patch("mojo_downloader.check_sheet_exists", return_value=False) as mock_check:
+                with patch("mojo_downloader.download_exports", return_value=(FAKE_RESULTS, [])):
+                    with patch("mojo_downloader.upload_to_drive", return_value={"name": "s", "webViewLink": "x"}) as mock_upload:
+                        mojo_downloader.main()
+    assert mock_check.call_count == 2
+    assert all(c.args[2] == "folder123" for c in mock_check.call_args_list)
+    assert mock_upload.call_count == 2
+    assert all(c.args[3] == "folder123" for c in mock_upload.call_args_list)
 
 
 def test_normal_mode_all_tables_empty_exits_zero(monkeypatch, credentials_file):
