@@ -46,6 +46,13 @@ def test_validate_env_exits_when_folder_id_missing(monkeypatch, credentials_file
         mojo_downloader.validate_env()
 
 
+def test_validate_env_exits_when_folder_id_empty(monkeypatch, credentials_file):
+    _patch_all_valid(monkeypatch, credentials_file)
+    monkeypatch.setattr(mojo_downloader, "GOOGLE_DRIVE_FOLDER_ID", "")
+    with pytest.raises(SystemExit):
+        mojo_downloader.validate_env()
+
+
 def test_validate_env_exits_when_credentials_file_missing(monkeypatch, tmp_path):
     _patch_all_valid(monkeypatch, tmp_path / "credentials.json")  # file does not exist
     with pytest.raises(SystemExit):

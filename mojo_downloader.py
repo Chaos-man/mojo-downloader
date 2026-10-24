@@ -167,6 +167,8 @@ def main() -> None:
         sys.exit(1)
 
     validate_env()
+    folder_id = GOOGLE_DRIVE_FOLDER_ID
+    assert folder_id is not None  # validate_env() exits if unset; narrows str | None for type checkers
     try:
         drive_service = get_drive_service()
     except Exception as exc:
@@ -180,7 +182,7 @@ def main() -> None:
     if args.check_drive:
         for table in tables:
             name = sheet_name_for(table)
-            exists = check_sheet_exists(drive_service, name, GOOGLE_DRIVE_FOLDER_ID)
+            exists = check_sheet_exists(drive_service, name, folder_id)
             log.info("%-55s %s", name, "EXISTS" if exists else "not found")
         sys.exit(0)
 
@@ -189,7 +191,7 @@ def main() -> None:
         for table in tables:
             name = sheet_name_for(table)
             log.info("Checking Drive folder for existing sheet '%s'...", name)
-            if check_sheet_exists(drive_service, name, GOOGLE_DRIVE_FOLDER_ID):
+            if check_sheet_exists(drive_service, name, folder_id):
                 msg = (
                     f"Google Sheet '{name}' already exists in the specified folder. "
                     "Delete or rename it, or use --force to skip this check."
@@ -270,7 +272,7 @@ def main() -> None:
     log.info("=" * 60)
     for table, path in results.items():
         name = sheet_name_for(table)
-        result = upload_to_drive(drive_service, path, name, GOOGLE_DRIVE_FOLDER_ID)
+        result = upload_to_drive(drive_service, path, name, folder_id)
         log.info("  %-20s: %s  —  %s", table, result["name"], result.get("webViewLink", "N/A"))
 
     log.info("=" * 60)
