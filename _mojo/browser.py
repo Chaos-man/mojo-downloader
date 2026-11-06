@@ -26,6 +26,9 @@ DOWNLOAD_TIMEOUT_MS = 360_000
 # How long to wait for the URL to leave /login after submitting credentials.
 LOGIN_TIMEOUT_MS = 15_000
 
+# How long to wait for rows after applying a filter before calling the table empty.
+TABLE_RENDER_TIMEOUT_MS = 15_000
+
 HEADLESS = True
 
 
@@ -57,12 +60,15 @@ def _ensure_county_checked(page: Page, label: str) -> None:
 def _table_is_empty(page: Page, label: str) -> bool:
     """Return True if the currently filtered table has no rows.
 
-    Checked via the row count in the contact table's <tbody>, which renders
-    with zero <tr> children when the applied filter matches no records.
+    Mojo clears the contact table's <tbody> when a filter is clicked and redraws
+    it after the response, so zero <tr> children can just mean a slow redraw.
+    The table only counts as empty if no row appears within TABLE_RENDER_TIMEOUT_MS.
     """
-    page.wait_for_timeout(500)
-    count = page.locator('tbody[class*="Table_tbody__"] tr').count()
-    if count == 0:
+    try:
+        page.locator('tbody[class*="Table_tbody__"] tr').first.wait_for(
+            state="attached", timeout=TABLE_RENDER_TIMEOUT_MS
+        )
+    except PlaywrightTimeoutError:
         log.info("%s: table is empty after filter — skipping export.", label)
         return True
     return False

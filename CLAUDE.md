@@ -87,6 +87,7 @@ Shared fixtures (mocked Drive service, temp `credentials.json`) are in [tests/co
 - `_mojo.drive.SHEET_NAME_FSBO` / `_mojo.drive.SHEET_NAME_EXPIRED` — today's sheet names (set at import time)
 - `_mojo.browser.DOWNLOAD_TIMEOUT_MS` — 360,000 ms
 - `_mojo.browser.LOGIN_TIMEOUT_MS` — 15,000 ms; if the URL is still on `/login` after this, `MojoLoginError` is raised and `--cron` skips retries
+- `_mojo.browser.TABLE_RENDER_TIMEOUT_MS` — 15,000 ms; Mojo clears the table on filter click and redraws it, so a table only counts as empty if no row appears within this window
 - `_mojo.browser.HEADLESS` — set to `False` via `--show-browser` flag for local debugging
 - `_mojo.filter.COUNTY_COLUMN` — expected header name for the county column in exported XLSX (default: `"County"`); update if Mojo changes the column name
 
