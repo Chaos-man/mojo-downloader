@@ -35,21 +35,75 @@ def _make_page_mock(tmp_path, suggested_filename="export.xlsx"):
 # _table_is_empty
 # ---------------------------------------------------------------------------
 
+class _SlowTablePage:
+    """Fake page whose rows appear redraw_ms after the filter response.
+
+    Mojo clears the table when a filter is clicked and redraws it later, so a
+    row count reads 0 until the redraw. redraw_ms=None means the table never
+    gets rows (genuinely empty).
+    """
+
+    def __init__(self, redraw_ms):
+        self.redraw_ms = redraw_ms
+        self.now_ms = 0
+        self.selector = None
+
+    def wait_for_timeout(self, ms):
+        self.now_ms += ms
+
+    def locator(self, selector):
+        self.selector = selector
+        return self
+
+    def count(self):
+        return 5 if self.redraw_ms is not None and self.now_ms >= self.redraw_ms else 0
+
+    @property
+    def first(self):
+        return self
+
+    def wait_for(self, state="visible", timeout=None):
+        if self.redraw_ms is None or self.redraw_ms - self.now_ms > timeout:
+            self.now_ms += timeout
+            raise PlaywrightTimeoutError("no rows")
+        self.now_ms = max(self.now_ms, self.redraw_ms)
+
+
 def test_table_is_empty_when_no_rows():
-    """Returns True and logs when the tbody has zero rows."""
-    page = MagicMock()
-    page.locator.return_value.count.return_value = 0
+    """Returns True when no rows appear within the timeout."""
+    page = _SlowTablePage(redraw_ms=None)
 
     assert browser._table_is_empty(page, "FSBO") is True
-    page.locator.assert_called_with('tbody[class*="Table_tbody__"] tr')
+    assert page.selector == 'tbody[class*="Table_tbody__"] tr'
+    assert page.now_ms == browser.TABLE_RENDER_TIMEOUT_MS
 
 
 def test_table_is_empty_when_rows_present():
-    """Returns False when the tbody has rows."""
-    page = MagicMock()
-    page.locator.return_value.count.return_value = 5
+    """Returns False when the rows are already there."""
+    page = _SlowTablePage(redraw_ms=0)
 
     assert browser._table_is_empty(page, "FSBO") is False
+
+
+def test_table_is_empty_waits_for_slow_redraw():
+    """A table that redraws slowly is not reported as empty (regression: the old
+    fixed 500 ms wait skipped the Expired export on the server on slow mornings)."""
+    page = _SlowTablePage(redraw_ms=700)
+
+    assert browser._table_is_empty(page, "Expired") is False
+
+
+def test_table_is_empty_returns_as_soon_as_rows_appear():
+    """Tables with rows don't pay the full timeout."""
+    page = _SlowTablePage(redraw_ms=700)
+
+    browser._table_is_empty(page, "FSBO")
+
+    assert page.now_ms == 700
+
+
+def test_table_render_timeout_is_15_seconds():
+    assert browser.TABLE_RENDER_TIMEOUT_MS == 15_000
 
 
 # ---------------------------------------------------------------------------
