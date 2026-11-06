@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.1] – 2026-11-06
+### Fixed
+- Exports could be silently skipped as empty — `_table_is_empty()` counted rows after a fixed 500 ms, but Mojo clears the table on filter click and redraws it later, so a slow redraw read as an empty table (the server skipped Expired this way on 2026-11-03 and 2026-11-06). It now waits up to 15 seconds (`TABLE_RENDER_TIMEOUT_MS`) for the first row and only treats a timeout as empty; genuinely empty tables take that full wait
+### Changed
+- Routine dependency updates: `playwright` (≥1.64.1), `pytest` (≥9.2.0), `actions/setup-python` (v7)
+
 ## [3.5.0] – 2026-10-23
 ### Fixed
 - `mojo_downloader.log` never rotated on the server — `TimedRotatingFileHandler` schedules rollover from the file's mtime, so a short-lived process that runs daily kept pushing the next rollover a full interval ahead (the server log held records back to March). The file handler now schedules rollover from the timestamp of the file's first record, falling back to the stock behaviour if the file is empty or unparseable
